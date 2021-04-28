@@ -1,16 +1,13 @@
 package workshop;
 
-import java.awt.Button;
-import java.awt.FlowLayout;
-import java.awt.Panel;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.ItemEvent;
-import java.awt.event.ItemListener;
 
 import jv.number.PuDouble;
-import jv.object.PsConfig;
+import jv.number.PuInteger;
 import jv.object.PsDialog;
+import jv.object.PsPanel;
 import jv.object.PsUpdateIf;
 import jvx.project.PjWorkshop_IP;
 
@@ -40,27 +37,36 @@ public class MyWorkshop_IP extends PjWorkshop_IP implements ActionListener {
 	public void setParent(PsUpdateIf parent) {
 		super.setParent(parent);
 		m_ws = (MyWorkshop)parent;
-	
-		addSubTitle("Example of a subtitle");
-		
-		m_bMakeRandomElementColors = new Button("Random Element Colors");
-		m_bMakeRandomElementColors.addActionListener(this);
-		m_bMakeRandomVertexColors = new Button("Random Vertex Colors");
-		m_bMakeRandomVertexColors.addActionListener(this);
-		Panel panel1 = new Panel(new FlowLayout(FlowLayout.CENTER));
-		panel1.add(m_bMakeRandomElementColors);
-		panel1.add(m_bMakeRandomVertexColors);
-		add(panel1);
-		
-		m_xOff = new PuDouble("X Offset");
-		m_xOff.setDefBounds(-10,10,0.1,1);
-		m_xOff.addUpdateListener(this);
-		m_xOff.init();
-		add(m_xOff.getInfoPanel());
-		
+
+		add(new Label(m_ws.modelInfo()));
+
+		addSubTitle("Task 1");
+		add(new Label("Genus: " + m_ws.computeGenus()));
+		add(new Label("Volume: " + m_ws.computeVolume()));
+		add(new Label("Connected components: " + m_ws.computeConnectedComponents()));
+
+		addSubTitle("Task 2");
+
+		/*
+			m_bMakeRandomElementColors = new Button("Random Element Colors");
+			m_bMakeRandomElementColors.addActionListener(this);
+			m_bMakeRandomVertexColors = new Button("Random Vertex Colors");
+			m_bMakeRandomVertexColors.addActionListener(this);
+			Panel panel1 = new Panel(new FlowLayout(FlowLayout.CENTER));
+			panel1.add(m_bMakeRandomElementColors);
+			panel1.add(m_bMakeRandomVertexColors);
+			add(panel1);
+
+			m_xOff = new PuDouble("X Offset");
+			m_xOff.setDefBounds(-10,10,0.1,1);
+			m_xOff.addUpdateListener(this);
+			m_xOff.init();
+			add(m_xOff.getInfoPanel());
+		 */
+
 		validate();
 	}
-	
+
 	
 	public boolean update(Object event) {
 		if (event == m_xOff) {

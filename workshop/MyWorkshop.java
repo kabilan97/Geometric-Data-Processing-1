@@ -1,6 +1,7 @@
 package workshop;
 
 import java.awt.Color;
+import java.util.Arrays;
 import java.util.Random;
 
 
@@ -84,5 +85,54 @@ public class MyWorkshop extends PjWorkshop {
 			v.setEntry(0, v.getEntry(0)+xOff);
 			m_geom.setVertex(i, v);
 		}
+	}
+
+	public String modelInfo() {
+		return "Vertices: " + m_geom.getVertices().length + ", Triangles: " + m_geom.getElements().length;
+	}
+
+	/**
+	 * Compute the volume using signed volume of tetrahedrons
+	 */
+	public double computeVolume() {
+		PdVector[] vertices = m_geom.getVertices();
+
+		PdVector center = average(vertices);
+
+		// construct tetrahedron of each triangle using it's three vertices and the center point
+		double volume = Arrays.stream(m_geom.getElements()).mapToDouble(indices -> {
+			PdVector p0 = vertices[indices.getEntry(0)];
+			PdVector p1 = vertices[indices.getEntry(1)];
+			PdVector p2 = vertices[indices.getEntry(2)];
+			return signedVolume(p0, p1, p2, center);
+		}).sum();
+
+		return Math.abs(volume);
+	}
+
+	// get average point from a list of vectors
+	private PdVector average(PdVector[] v) {
+		PdVector sum = Arrays.stream(v).reduce(PdVector::addNew).get();
+		sum.multScalar(1.0 / v.length);
+		return sum;
+	}
+
+	// https://stackoverflow.com/a/9866530
+	private double signedVolume(PdVector a, PdVector b, PdVector c, PdVector d) {
+		PdVector v1 = PdVector.subNew(a, d);
+		PdVector v2 = PdVector.subNew(b, d);
+		PdVector v3 = PdVector.subNew(c, d);
+
+		return PdVector.dot(v1, PdVector.crossNew(v2, v3)) / 6.0;
+	}
+
+	// TODO
+	public double computeGenus() {
+		return 0.0f;
+	}
+
+	// TODO
+	public int computeConnectedComponents() {
+		return 0;
 	}
 }
