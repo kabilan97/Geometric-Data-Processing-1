@@ -126,13 +126,19 @@ public class MyWorkshop extends PjWorkshop {
 		return PdVector.dot(v1, PdVector.crossNew(v2, v3)) / 6.0;
 	}
 
-	// TODO
-	public double computeGenus() {
-		return 0.0f;
+
+	public int computeGenus() {
+		/** assuming the numbers are defined since the tool itself does show them,
+		 * the genus will look as following
+		 * defined by the euler formula: (E - V - F - b)/2 + 1
+		 **/
+		return (m_geom.getNumEdges() - m_geom.getNumVertices() - m_geom.getNumElements()- m_geom.getNumBoundaries())/2 +1;
 	}
 
 	// TODO
 	public int computeConnectedComponents() {
 		return 0;
 	}
+
+
 }
