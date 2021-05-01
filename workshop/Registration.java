@@ -52,6 +52,10 @@ public class Registration extends PjWorkshop {
 		m_surfP = surfP;
 		m_surfQ = surfQ;
 	}
-	
-	
+
+
+	public void run(int k) {
+		RigidRegistration rr = new RigidRegistration(m_surfP, m_surfQ, k);
+		rr.runAlgorithm();
+	}
 }

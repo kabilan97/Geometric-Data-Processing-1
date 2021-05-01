@@ -12,6 +12,7 @@ import java.awt.event.ActionListener;
 import java.util.Vector;
 
 import jv.geom.PgElementSet;
+import jv.number.PuInteger;
 import jv.object.PsConfig;
 import jv.object.PsDialog;
 import jv.object.PsUpdateIf;
@@ -27,11 +28,15 @@ import jvx.project.PjWorkshop_IP;
  *
  */
 public class Registration_IP extends PjWorkshop_IP implements ActionListener{
+	private int kDefault = 3;
+
 	protected	List			m_listActive;
 	protected	List			m_listPassive;
 	protected	Vector			m_geomList;
 	protected	Registration	m_registration;
 	protected   Button			m_bSetSurfaces;
+
+	protected  PuInteger k;
 
 	/** Constructor */
 	public Registration_IP () {
@@ -58,6 +63,11 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 		
 		Panel pGeometries = new Panel();
 		pGeometries.setLayout(new GridLayout(1, 2));
+
+		k = new PuInteger("K value");
+		k.setDefValue(kDefault);
+		k.setValue(kDefault);
+		add(k.getInfoPanel());
 
 		Panel Passive = new Panel();
 		Passive.setLayout(new BorderLayout());
@@ -126,7 +136,8 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 		if (source == m_bSetSurfaces) {
 			m_registration.setGeometries((PgElementSet)m_geomList.elementAt(m_listActive.getSelectedIndex()),
 			(PgElementSet)m_geomList.elementAt(m_listPassive.getSelectedIndex()));
-			return;
+
+			m_registration.run(k.getValue());
 		}
 	}
 	/**

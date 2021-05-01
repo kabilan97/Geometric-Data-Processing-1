@@ -13,6 +13,9 @@ public class RigidRegistration {
     public PgElementSet p;
     public PgElementSet q;
 
+    Set<VertexPair> closestPairs;
+
+
     public RigidRegistration(PgElementSet p, PgElementSet q, int k) {
         this.p = p;
         this.q = q;
@@ -21,11 +24,21 @@ public class RigidRegistration {
         Set<VertexPair> pairs = computeClosestPairs();
 
         // part 2
-        Set<VertexPair> trimmedPairs = trimPairs(pairs, k);
-
-        // part 3
-        // TODO
+        closestPairs = trimPairs(pairs, k);
     }
+
+    public void runAlgorithm() {
+        // step 1: compute centroids
+
+        // step 2: compute M = ...
+
+        // step 3: compute SVD
+
+        // step 4: compute optional rotation
+
+        // step 5: compute optimal translation
+
+    };
 
     private Set<VertexPair> trimPairs(Set<VertexPair> pairs, int k) {
         // https://stackoverflow.com/a/49215170
