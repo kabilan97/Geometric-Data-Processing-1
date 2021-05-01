@@ -1,8 +1,15 @@
 package workshop;
 
+import Jama.Matrix;
 import jv.geom.PgElementSet;
+import jv.object.PsDebug;
+import jv.vecmath.PdMatrix;
+import jv.vecmath.PdMatrixIf;
 import jv.vecmath.PdVector;
+import jv.vecmath.PuMath;
+import util.Util;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
@@ -15,6 +22,8 @@ public class RigidRegistration {
 
     Set<VertexPair> closestPairs;
 
+    PdMatrix optRotation;
+    PdMatrix optTranslation;
 
     public RigidRegistration(PgElementSet p, PgElementSet q, int k) {
         this.p = p;
@@ -27,18 +36,97 @@ public class RigidRegistration {
         closestPairs = trimPairs(pairs, k);
     }
 
+    // get average point from a list of vectors
+    private PdVector average(PdVector[] v) {
+        PdVector sum = Arrays.stream(v).reduce(PdVector::addNew).get();
+        sum.multScalar(1.0 / v.length);
+        return sum;
+    }
+
     public void runAlgorithm() {
         // step 1: compute centroids
+        PsDebug.message("Running step 1");
+        PdVector centroidP = average(p.getVertices());
+        PdVector centroidQ = average(q.getVertices());
 
         // step 2: compute M = ...
+        PdMatrix m = new PdMatrix(3, 3);
+        int n = closestPairs.size();
+
+        PsDebug.message("Running step 2");
+        for (VertexPair pair : closestPairs) {
+            PdMatrix dp = new PdMatrix(3, 1);
+            PdMatrix dq = new PdMatrix(3, 1);
+
+            dp.set(PdVector.subNew(pair.v0, centroidP).m_data);
+            dq.set(PdVector.subNew(pair.v1, centroidQ).m_data);
+            dq.transpose();
+
+            PdMatrix res = new PdMatrix(3, 3);
+            res.mult(dp, dq);
+            res.multScalar(1.0 / n);
+            m.add(res);
+        }
 
         // step 3: compute SVD
+        PsDebug.message("Running step 3");
+        PdMatrix u = new PdMatrix(3, 3);
+        PdMatrix d = new PdMatrix(3, 3);
+        PdMatrix v = new PdMatrix(3, 3);
+
+        PdMatrix ut = new PdMatrix(3, 3);
+        ut.transpose(u);
+
+        Util.computeSVD(m, u, d, v);
 
         // step 4: compute optional rotation
+        PsDebug.message("Running step 4");
+        PdMatrix rOpt = new PdMatrix(3, 3);
+        PdMatrix rOptIntermediateResult = new PdMatrix(3, 3);
+
+        PdMatrix vut = new PdMatrix(3, 3);
+        vut.mult(v, ut);
+
+        PdMatrix middle = new PdMatrix(new double[][]{
+                {1.0, 0, 0},
+                {0, 1, 0},
+                {0, 0, vut.det()}
+        });
+
+        rOptIntermediateResult.mult(middle, ut);
+        rOpt.mult(v, rOptIntermediateResult);
+
+        optRotation = rOpt;
 
         // step 5: compute optimal translation
+        PsDebug.message("Running step 5");
+        PdMatrix centroidPMatrix = new PdMatrix(3, 1);
+        PdMatrix centroidQMatrix = new PdMatrix(3, 1);
+        centroidPMatrix.set(centroidP.m_data);
+        centroidQMatrix.set(centroidQ.m_data);
 
-    };
+        PsDebug.message(centroidPMatrix.toString());
+        PsDebug.message(rOpt.toString());
+
+        PdMatrix rOptIntermediate = new PdMatrix(3, 1);
+        rOptIntermediate.mult(rOpt, centroidPMatrix);
+        centroidQMatrix.sub(rOptIntermediate);
+
+        optTranslation = centroidQMatrix;
+
+        PsDebug.message(this.toString());
+
+//        q.translate(optTranslation);
+//        q.rotate(optRotation);
+    }
+
+    @Override
+    public String toString() {
+        return "RigidRegistration{" +
+                "optRotation=" + optRotation +
+                ", optTranslation=" + optTranslation +
+                '}';
+    }
 
     private Set<VertexPair> trimPairs(Set<VertexPair> pairs, int k) {
         // https://stackoverflow.com/a/49215170

@@ -37,6 +37,7 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 	protected   Button			m_bSetSurfaces;
 
 	protected  PuInteger k;
+	private Label outputLabel;
 
 	/** Constructor */
 	public Registration_IP () {
@@ -90,6 +91,9 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 		m_bSetSurfaces.addActionListener(this);
 		pSetSurfaces.add(m_bSetSurfaces, BorderLayout.CENTER);
 		add(pSetSurfaces);
+
+		outputLabel = new Label("None yet");
+		add(outputLabel);
 		
 		updateGeomList();
 		validate();
@@ -137,7 +141,9 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 			m_registration.setGeometries((PgElementSet)m_geomList.elementAt(m_listActive.getSelectedIndex()),
 			(PgElementSet)m_geomList.elementAt(m_listPassive.getSelectedIndex()));
 
+			outputLabel.setText("Computing");
 			m_registration.run(k.getValue());
+			outputLabel.setText("Done (value in console)");
 		}
 	}
 	/**
