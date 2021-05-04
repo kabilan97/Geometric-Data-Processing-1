@@ -116,8 +116,15 @@ public class RigidRegistration {
 
         PsDebug.message(this.toString());
 
-//        q.translate(optTranslation);
-//        q.rotate(optRotation);
+        transform(optTranslation, optRotation);
+    }
+
+    private void transform(PdMatrix translation, PdMatrix rotation) {
+        q.translate(translation.getColumn(0));
+
+        for (PdVector v : q.getVertices()) {
+            v.leftMultMatrix(rotation);
+        }
     }
 
     @Override
@@ -132,8 +139,6 @@ public class RigidRegistration {
         // https://stackoverflow.com/a/49215170
         double median = pairs.stream().mapToDouble(VertexPair::getDistance).sorted()
                 .skip((pairs.size() - 1) / 2).limit(2 - pairs.size() % 2).average().getAsDouble();
-
-
 
         return pairs.stream().filter(p -> p.getDistance() > k * median).collect(Collectors.toSet());
     }
