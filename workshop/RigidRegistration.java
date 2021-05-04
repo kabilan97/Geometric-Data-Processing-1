@@ -120,11 +120,15 @@ public class RigidRegistration {
     }
 
     private void transform(PdMatrix translation, PdMatrix rotation) {
+        PsDebug.message(translation.getColumn(0).toString());
+
         q.translate(translation.getColumn(0));
 
-        for (PdVector v : q.getVertices()) {
+        for (var v : q.getVertices()) {
             v.leftMultMatrix(rotation);
         }
+
+        q.update(q);
     }
 
     @Override
