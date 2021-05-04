@@ -1,15 +1,11 @@
 package workshop;
 
-import Jama.Matrix;
 import jv.geom.PgElementSet;
 import jv.object.PsDebug;
 import jv.vecmath.PdMatrix;
-import jv.vecmath.PdMatrixIf;
 import jv.vecmath.PdVector;
-import jv.vecmath.PuMath;
 import util.Util;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
@@ -144,7 +140,9 @@ public class RigidRegistration {
         double median = pairs.stream().mapToDouble(VertexPair::getDistance).sorted()
                 .skip((pairs.size() - 1) / 2).limit(2 - pairs.size() % 2).average().getAsDouble();
 
-        return pairs.stream().filter(p -> p.getDistance() > k * median).collect(Collectors.toSet());
+        PsDebug.message("Median distance: " + median);
+
+        return pairs.stream().filter(p -> p.getDistance() <= k * median).collect(Collectors.toSet());
     }
 
     // since finding closest pairs is slow without a fancy data structure, use a ConcurrentSet and a parallel stream to
@@ -152,7 +150,7 @@ public class RigidRegistration {
     public Set<VertexPair> computeClosestPairs() {
         Set<VertexPair> res = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-        Arrays.stream(q.getVertices()).parallel().forEach(v -> {
+        Arrays.stream(p.getVertices()).parallel().forEach(v -> {
             res.add(new VertexPair(v, findClosestInQ(v)));
         });
 
@@ -198,6 +196,11 @@ public class RigidRegistration {
         }
 
         public double getDistance() { return distance; }
+
+        @Override
+        public String toString() {
+            return "[" + Arrays.toString(v0.m_data) + ", " + Arrays.toString(v1.m_data) + ": " + distance + " ]";
+        }
     }
 }
 
