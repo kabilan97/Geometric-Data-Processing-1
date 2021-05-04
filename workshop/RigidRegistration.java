@@ -46,21 +46,24 @@ public class RigidRegistration {
         PdVector centroidQ = average(q.getVertices());
 
         // step 2: compute M = ...
+        PsDebug.message("Running step 2");
         PdMatrix m = new PdMatrix(3, 3);
         int n = closestPairs.size();
 
-        PsDebug.message("Running step 2");
         for (VertexPair pair : closestPairs) {
             PdMatrix dp = new PdMatrix(3, 1);
             PdMatrix dq = new PdMatrix(3, 1);
+            PdMatrix dqt = new PdMatrix(1, 3);
 
             dp.set(PdVector.subNew(pair.v0, centroidP).m_data);
             dq.set(PdVector.subNew(pair.v1, centroidQ).m_data);
-            dq.transpose();
+
+            dqt.transpose(dq);
 
             PdMatrix res = new PdMatrix(3, 3);
-            res.mult(dp, dq);
+            res.mult(dp, dqt);
             res.multScalar(1.0 / n);
+
             m.add(res);
         }
 
@@ -70,15 +73,14 @@ public class RigidRegistration {
         PdMatrix d = new PdMatrix(3, 3);
         PdMatrix v = new PdMatrix(3, 3);
 
+        Util.computeSVD(m, u, d, v);
+
         PdMatrix ut = new PdMatrix(3, 3);
         ut.transpose(u);
-
-        Util.computeSVD(m, u, d, v);
 
         // step 4: compute optional rotation
         PsDebug.message("Running step 4");
         PdMatrix rOpt = new PdMatrix(3, 3);
-        PdMatrix rOptIntermediateResult = new PdMatrix(3, 3);
 
         PdMatrix vut = new PdMatrix(3, 3);
         vut.mult(v, ut);
@@ -89,6 +91,7 @@ public class RigidRegistration {
                 {0, 0, vut.det()}
         });
 
+        PdMatrix rOptIntermediateResult = new PdMatrix(3, 3);
         rOptIntermediateResult.mult(middle, ut);
         rOpt.mult(v, rOptIntermediateResult);
 
@@ -120,8 +123,8 @@ public class RigidRegistration {
 
         q.translate(translation.getColumn(0));
 
-        for (var v : q.getVertices()) {
-            v.leftMultMatrix(rotation);
+        for (PdVector v : q.getVertices()) {
+            v.rightMultMatrix(rotation);
         }
 
         q.update(q);
