@@ -1,8 +1,7 @@
 package workshop;
 
 import java.awt.Color;
-import java.util.Arrays;
-import java.util.Random;
+import java.util.*;
 
 
 import jv.geom.PgElementSet;
@@ -137,10 +136,45 @@ public class MyWorkshop extends PjWorkshop {
 		return (m_geom.getNumEdges() - m_geom.getNumVertices() - m_geom.getNumElements()- m_geom.getNumBoundaries())/2 +1;
 	}
 
-	// TODO
+
 	public int computeConnectedComponents() {
-		return 0;
+		m_geom.makeNeighbour();
+
+		Set<Integer> discovered = new HashSet<>();//BFS(0);
+		int count = 0;
+		for (int i = 0; i < m_geom.getNumElements(); i++) {
+			if(!discovered.contains(i)){
+				discovered.addAll(BFS(i));
+				count++;
+			}
+		}
+
+
+		return count;
 	}
+
+	private Set<Integer> BFS(int root) {
+		Set<Integer> discovered = new HashSet<>();
+		Queue<Integer> queue = new ArrayDeque<Integer>();
+		discovered.add(root);
+		queue.add(root);
+		while (!queue.isEmpty()) {
+			PiVector neighbours = m_geom.getNeighbour(queue.poll());
+			if (neighbours != null) {
+				Set<Integer> tmp = new HashSet<>();
+
+				int[] entries = neighbours.getEntries();
+				for (int entry : entries) {
+					tmp.add(entry);
+				}
+				tmp.removeAll(discovered);
+				queue.addAll(tmp);
+				discovered.addAll(tmp);
+			}
+		}
+		return discovered;
+	}
+
 
 
 }
