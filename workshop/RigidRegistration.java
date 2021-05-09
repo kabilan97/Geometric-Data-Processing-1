@@ -89,7 +89,8 @@ public class RigidRegistration {
 
             b.add(resB);
         }
-
+        PsDebug.message("A: " + a.toString());
+        PsDebug.message("B: " + b.toString());
 
         // step 3: solve ...
         PdMatrix minusB = new PdMatrix(6, 1);
@@ -98,8 +99,60 @@ public class RigidRegistration {
 
         Matrix jama = new Matrix(a.m_data);
         Matrix rt = jama.solve(new Matrix(minusB.m_data));
+        PdMatrix r = new PdMatrix(3, 1);
+        r.set(new double[]{
+                rt.get(0,0),
+                rt.get(1,0),
+                rt.get(2,0)
+        });
+        PdMatrix t = new PdMatrix(3, 1);
+        t.set(new double[]{
+                rt.get(3,0),
+                rt.get(4,0),
+                rt.get(5,0)
+        });
 
-        PsDebug.message(Arrays.deepToString(rt.getArray()));
+        PdMatrix R_apos = new PdMatrix(new double[][]{
+                {1, -1 * r.getRow(2).getEntry(0), r.getRow(1).getEntry(0)},
+                {r.getRow(2).getEntry(0), 1, -1 * r.getRow(0).getEntry(0)},
+                {-1*r.getRow(1).getEntry(0), r.getRow(0).getEntry(0), 1}
+        });
+
+        PdMatrix u = new PdMatrix(3, 3);
+        PdMatrix d = new PdMatrix(3, 3);
+        PdMatrix v = new PdMatrix(3, 3);
+
+        Util.computeSVD(R_apos, u, d, v);
+
+        PdMatrix vt = new PdMatrix(3, 3);
+        vt.transpose(v);
+
+        // step 4: compute optional rotation
+        PsDebug.message("Running step 4");
+        PdMatrix rOpt = new PdMatrix(3, 3);
+
+        PdMatrix uvt = new PdMatrix(3, 3);
+        uvt.mult(u, vt);
+
+        PdMatrix middle = new PdMatrix(new double[][]{
+                {1.0, 0, 0},
+                {0, 1, 0},
+                {0, 0, uvt.det()}
+        });
+
+        PdMatrix rOptIntermediateResult = new PdMatrix(3, 3);
+        rOptIntermediateResult.mult(middle, vt);
+        rOpt.mult(u, rOptIntermediateResult);
+        PsDebug.message("ropt:"+ rOpt.toString());
+        PdVector translate = new PdVector(0, 0, 0);
+        translate.add(t.getColumn(0));
+        for (PdVector i : p.getVertices()){
+            i.rightMultMatrix(rOpt);
+            i.add(translate);
+        }
+
+        p.update(p);
+
     }
 
     private void pointToPoint() {
@@ -183,6 +236,7 @@ public class RigidRegistration {
 
         transform(optTranslation, optRotation);
     }
+
 
     private void transform(PdMatrix translation, PdMatrix rotation) {
         PsDebug.message(translation.getColumn(0).toString());
