@@ -51,8 +51,8 @@ public class RigidRegistration {
         Set<VertexPair> closestPairs = trimPairs(computeClosestPairs(this::distanceToPlane), k);
 
         // compute a & b
-        PdMatrix a = new PdMatrix(6 ,6);
-        PdMatrix b = new PdMatrix(6 ,1);
+        PdMatrix A = new PdMatrix(6, 6);
+        PdMatrix b = new PdMatrix(6, 1);
 
         PsDebug.message("Running loop: " + closestPairs.size());
         for (VertexPair pair : closestPairs) {
@@ -63,8 +63,8 @@ public class RigidRegistration {
             PdMatrix topRow = toMatrix(PdVector.crossNew(pointP, normal));
             PdMatrix bottomRow = toMatrix(normal);
 
-            PdMatrix left = new PdMatrix(6, 1);
-            left.set(new double[]{
+            PdMatrix ai = new PdMatrix(6, 1);
+            ai.set(new double[]{
                     topRow.getRow(0).getEntry(0),
                     topRow.getRow(1).getEntry(0),
                     topRow.getRow(2).getEntry(0),
@@ -73,59 +73,58 @@ public class RigidRegistration {
                     bottomRow.getRow(2).getEntry(0)
             });
 
-            PdMatrix right = new PdMatrix(1, 6);
-            right.transpose(left);
+            PdMatrix ai_t = new PdMatrix(1, 6);
+            ai_t.transpose(ai);
 
             PdMatrix res = new PdMatrix(6, 6);
-            res.mult(left, right);
+            res.mult(ai, ai_t);
 
-            a.add(res);
+            A.add(res);
 
             // step 2: compute B
             double distance = signedPlaneDistance(pair.v0, pair.v1);
 
             PdMatrix resB = new PdMatrix(6, 1);
-            resB.multScalar(left, distance);
+            resB.multScalar(ai, distance);
 
             b.add(resB);
         }
-        PsDebug.message("A: " + a.toString());
-        PsDebug.message("B: " + b.toString());
 
         // step 3: solve ...
         PdMatrix minusB = new PdMatrix(6, 1);
         minusB.set(b.m_data);
         minusB.multScalar(-1);
 
-        Matrix jama = new Matrix(a.m_data);
+        Matrix jama = new Matrix(A.m_data);
         Matrix rt = jama.solve(new Matrix(minusB.m_data));
         PdMatrix r = new PdMatrix(3, 1);
         r.set(new double[]{
-                rt.get(0,0),
-                rt.get(1,0),
-                rt.get(2,0)
+                rt.get(0, 0),
+                rt.get(1, 0),
+                rt.get(2, 0)
         });
         PdMatrix t = new PdMatrix(3, 1);
         t.set(new double[]{
-                rt.get(3,0),
-                rt.get(4,0),
-                rt.get(5,0)
+                rt.get(3, 0),
+                rt.get(4, 0),
+                rt.get(5, 0)
         });
 
+        double r1 = r.getRow(0).getEntry(0);
+        double r2 = r.getRow(1).getEntry(0);
+        double r3 = r.getRow(2).getEntry(0);
         PdMatrix R_apos = new PdMatrix(new double[][]{
-                {1, -1 * r.getRow(2).getEntry(0), r.getRow(1).getEntry(0)},
-                {r.getRow(2).getEntry(0), 1, -1 * r.getRow(0).getEntry(0)},
-                {-1*r.getRow(1).getEntry(0), r.getRow(0).getEntry(0), 1}
+                {1, -r3, r2},
+                {r3, 1, -r1},
+                {-r2, r1, 1}
         });
 
         PdMatrix u = new PdMatrix(3, 3);
         PdMatrix d = new PdMatrix(3, 3);
         PdMatrix v = new PdMatrix(3, 3);
-
         Util.computeSVD(R_apos, u, d, v);
 
-        PdMatrix vt = new PdMatrix(3, 3);
-        vt.transpose(v);
+        PdMatrix vt = transpose(v);
 
         // step 4: compute optional rotation
         PsDebug.message("Running step 4");
@@ -143,16 +142,10 @@ public class RigidRegistration {
         PdMatrix rOptIntermediateResult = new PdMatrix(3, 3);
         rOptIntermediateResult.mult(middle, vt);
         rOpt.mult(u, rOptIntermediateResult);
-        PsDebug.message("ropt:"+ rOpt.toString());
-        PdVector translate = new PdVector(0, 0, 0);
-        translate.add(t.getColumn(0));
-        for (PdVector i : p.getVertices()){
-            i.rightMultMatrix(rOpt);
-            i.add(translate);
-        }
+        PsDebug.message("ropt:" + rOpt.toString());
+        PsDebug.message("topt:" + t.toString());
 
-        p.update(p);
-
+        transform(toMatrix(t.getColumn(0)), rOpt);
     }
 
     private void pointToPoint() {
@@ -239,17 +232,15 @@ public class RigidRegistration {
 
 
     private void transform(PdMatrix translation, PdMatrix rotation) {
-        PsDebug.message(translation.getColumn(0).toString());
+        PdMatrix res = new PdMatrix(3, 1);
+        for (PdVector v : p.getVertices()) {
+            res.mult(rotation, toMatrix(v));
+            res.add(translation);
 
-        PdVector translate = new PdVector(0, 0, 0);
-        translate.sub(translation.getColumn(0));
-        q.translate(translate);
-
-        for (PdVector v : q.getVertices()) {
-            v.rightMultMatrix(rotation);
+            v.set(res.getColumn(0).m_data);
         }
 
-        q.update(q);
+        p.update(p);
     }
 
     @Override
@@ -311,7 +302,7 @@ public class RigidRegistration {
         PdMatrix difference = toMatrix(PdVector.subNew(pointP, pointQ));
         PdMatrix differenceTranspose = transpose(difference);
 
-        PdMatrix res = new PdMatrix(1,1);
+        PdMatrix res = new PdMatrix(1, 1);
 
         res.mult(differenceTranspose, toMatrix(normalQ));
 
@@ -341,7 +332,18 @@ public class RigidRegistration {
         }
 
 
-        public double getDistance() { return distance; }
+        public double getDistance() {
+            return distance;
+        }
+
+        @Override
+        public String toString() {
+            return "VertexPair{" +
+                    "v0=" + Arrays.toString(p.getVertex(v0).m_data) +
+                    ", v1=" + Arrays.toString(q.getVertex(v1).m_data) +
+                    ", distance=" + distance +
+                    '}';
+        }
     }
 
     private static PdMatrix toMatrix(PdVector v) {
