@@ -30,6 +30,7 @@ import jvx.project.PjWorkshop_IP;
  */
 public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 	private int kDefault = 3;
+	private int nDefault = 100;
 
 	protected	List			m_listActive;
 	protected	List			m_listPassive;
@@ -38,6 +39,7 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 	protected   Button			m_bSetSurfaces;
 
 	protected  PuInteger k;
+	protected  PuInteger n;
 	protected PuBoolean usePointToPlane;
 	private Label outputLabel;
 
@@ -71,6 +73,12 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 		k.setDefValue(kDefault);
 		k.setValue(kDefault);
 		add(k.getInfoPanel());
+
+		n = new PuInteger("N value");
+		n.setDefValue(nDefault);
+		n.setValue(nDefault);
+		n.setBounds(1, 10000);
+		add(n.getInfoPanel());
 
 		usePointToPlane = new PuBoolean("Use Point-to-Plane method");
 		add(usePointToPlane.getInfoPanel());
@@ -147,7 +155,7 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 			(PgElementSet)m_geomList.elementAt(m_listPassive.getSelectedIndex()));
 
 			outputLabel.setText("Computing");
-			m_registration.run(k.getValue(), usePointToPlane.isEnabled());
+			m_registration.run(n.getValue(), k.getValue(), usePointToPlane.isEnabled());
 			outputLabel.setText("Done (value in console)");
 		}
 	}

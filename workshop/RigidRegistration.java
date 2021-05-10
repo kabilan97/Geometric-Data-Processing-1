@@ -7,10 +7,11 @@ import jv.vecmath.PdMatrix;
 import jv.vecmath.PdVector;
 import util.Util;
 
+import javax.swing.*;
+import java.awt.*;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -18,14 +19,16 @@ public class RigidRegistration {
     public PgElementSet p;
     public PgElementSet q;
     private int k;
+    private int n;
     private boolean pointToPlane;
 
     PdMatrix optRotation;
     PdMatrix optTranslation;
 
-    public RigidRegistration(PgElementSet p, PgElementSet q, int k, boolean pointToPlane) {
+    public RigidRegistration(PgElementSet p, PgElementSet q, int n, int k, boolean pointToPlane) {
         this.p = p;
         this.q = q;
+        this.n = n;
         this.k = k;
         this.pointToPlane = pointToPlane;
     }
@@ -48,7 +51,7 @@ public class RigidRegistration {
 
     private void pointToPlane() {
         // step 0: closest points
-        Set<VertexPair> closestPairs = trimPairs(computeClosestPairs(this::distanceToPlane), k);
+        Set<VertexPair> closestPairs = computeClosestPairs(this::distanceToPlane);
 
         // compute a & b
         PdMatrix A = new PdMatrix(6, 6);
@@ -150,7 +153,7 @@ public class RigidRegistration {
 
     private void pointToPoint() {
         // step 0: closest points
-        Set<VertexPair> closestPairs = trimPairs(computeClosestPairs(this::distance), k);
+        Set<VertexPair> closestPairs = computeClosestPairs(this::distance);
 
         // step 1: compute centroids
         PsDebug.message("Running step 1");
@@ -251,26 +254,30 @@ public class RigidRegistration {
                 '}';
     }
 
-    private Set<VertexPair> trimPairs(Set<VertexPair> pairs, int k) {
+    // since finding closest pairs is slow without a fancy data structure, use a ConcurrentSet and a parallel stream to
+    // do it concurrently
+    public Set<VertexPair> computeClosestPairs(DistanceFunction fnDistance) {
+        IntStream stream;
+        if (n < 1 || n > p.getNumVertices()) {
+            stream = IntStream.range(0, p.getNumVertices());
+        } else {
+            stream = new Random().ints(n,0, p.getNumVertices());
+        }
+
+        Set<VertexPair> pairs = stream.parallel()
+                .mapToObj(i -> new VertexPair(i, findClosestInQ(i, fnDistance), fnDistance))
+                .collect(Collectors.toSet());
+
         // https://stackoverflow.com/a/49215170
-        double median = pairs.stream().mapToDouble(VertexPair::getDistance).sorted()
+        double median = pairs.stream().parallel().mapToDouble(VertexPair::getDistance).sorted()
                 .skip((pairs.size() - 1) / 2).limit(2 - pairs.size() % 2).average().getAsDouble();
 
         PsDebug.message("Median distance: " + median);
 
-        return pairs.stream().filter(p -> p.getDistance() <= k * median).collect(Collectors.toSet());
-    }
+        Set<VertexPair> trimmed = pairs.stream().filter(p -> p.getDistance() <= k * median)
+                .collect(Collectors.toSet());
 
-    // since finding closest pairs is slow without a fancy data structure, use a ConcurrentSet and a parallel stream to
-    // do it concurrently
-    public Set<VertexPair> computeClosestPairs(DistanceFunction fnDistance) {
-        Set<VertexPair> res = Collections.newSetFromMap(new ConcurrentHashMap<>());
-
-        IntStream.range(0, p.getNumVertices()).parallel().forEach(i -> {
-            res.add(new VertexPair(i, findClosestInQ(i, fnDistance), fnDistance));
-        });
-
-        return res;
+        return trimmed;
     }
 
     private int findClosestInQ(int v, DistanceFunction fnDistance) {
