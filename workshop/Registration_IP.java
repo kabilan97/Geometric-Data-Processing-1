@@ -42,6 +42,7 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 	protected  PuInteger k;
 	protected  PuInteger n;
 	protected PuBoolean usePointToPlane;
+	protected PuBoolean runInLoop;
 	private Label outputLabel;
 
 	/** Constructor */
@@ -57,15 +58,13 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 	 * The text is split at line breaks into individual lines on the dialog.
 	 */
 	public String getNotice() {
-		return "This text should explain what the workshop is about and how to use it.";
+		return "Select the parts and press the button.";
 	}
 	
 	/** Assign a parent object. */
 	public void setParent(PsUpdateIf parent) {
 		super.setParent(parent);
 		m_registration = (Registration)parent;
-		
-		addSubTitle("Select Surfaces to be Registered");
 		
 		Panel pGeometries = new Panel();
 		pGeometries.setLayout(new GridLayout(1, 2));
@@ -83,6 +82,9 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 
 		usePointToPlane = new PuBoolean("Use Point-to-Plane method");
 		add(usePointToPlane.getInfoPanel());
+
+		runInLoop = new PuBoolean("Run until translation < 0.01");
+		add(runInLoop.getInfoPanel());
 
 		Panel Passive = new Panel();
 		Passive.setLayout(new BorderLayout());
@@ -155,17 +157,22 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 			m_registration.setGeometries((PgElementSet)m_geomList.elementAt(m_listActive.getSelectedIndex()),
 			(PgElementSet)m_geomList.elementAt(m_listPassive.getSelectedIndex()));
 
-			for (int i = 0; i < 100; i++) {
+			if (runInLoop.getState()) {
+				for (int i = 0; i < 100; i++) {
+					outputLabel.setText("Computing");
+					double total = m_registration.run(n.getValue(), k.getValue(), usePointToPlane.getState());
+					outputLabel.setText("Done (Iterations: " +  (i+1)  + ", translation = " + total + ") ");
+
+					if (total < 0.01) {
+						outputLabel.setText("Done - ALIGNED (Iterations: " +  (i+1)  + ", translation = " + total + ")");
+						break;
+					}
+				}
+			} else {
 				outputLabel.setText("Computing");
 				double total = m_registration.run(n.getValue(), k.getValue(), usePointToPlane.getState());
-				outputLabel.setText("Done (Iterations: " +  (i+1)  + ", translation = " + total + " ");
-
-				if (total < 0.01) {
-					outputLabel.setText("Done - ALIGNED (Iterations: " +  (i+1)  + ", translation = " + total + " ");
-					break;
-				}
+				outputLabel.setText("Done (translation = " + total + ")");
 			}
-
 		}
 	}
 	/**
