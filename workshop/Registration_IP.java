@@ -15,6 +15,7 @@ import jv.geom.PgElementSet;
 import jv.number.PuBoolean;
 import jv.number.PuInteger;
 import jv.object.PsConfig;
+import jv.object.PsDebug;
 import jv.object.PsDialog;
 import jv.object.PsUpdateIf;
 import jv.objectGui.PsList;
@@ -155,7 +156,7 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 			(PgElementSet)m_geomList.elementAt(m_listPassive.getSelectedIndex()));
 
 			outputLabel.setText("Computing");
-			m_registration.run(n.getValue(), k.getValue(), usePointToPlane.isEnabled());
+			m_registration.run(n.getValue(), k.getValue(), usePointToPlane.getState());
 			outputLabel.setText("Done (value in console)");
 		}
 	}

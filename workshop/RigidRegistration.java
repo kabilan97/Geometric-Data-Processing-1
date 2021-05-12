@@ -7,8 +7,6 @@ import jv.vecmath.PdMatrix;
 import jv.vecmath.PdVector;
 import util.Util;
 
-import javax.swing.*;
-import java.awt.*;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.Set;
@@ -21,9 +19,6 @@ public class RigidRegistration {
     private int k;
     private int n;
     private boolean pointToPlane;
-
-    PdMatrix optRotation;
-    PdMatrix optTranslation;
 
     public RigidRegistration(PgElementSet p, PgElementSet q, int n, int k, boolean pointToPlane) {
         this.p = p;
@@ -38,14 +33,26 @@ public class RigidRegistration {
         PdVector sum = Arrays.stream(v).reduce(PdVector::addNew).get();
         sum.multScalar(1.0 / v.length);
         return sum;
-
     }
 
+    private PdVector average(Set<PdVector> v) {
+        PdVector sum = v.stream().reduce(PdVector::addNew).get();
+        sum.multScalar(1.0 / v.size());
+        return sum;
+    }
+
+
     public void runAlgorithm() {
-        if (pointToPlane) {
-            pointToPlane();
-        } else {
-            pointToPoint();
+        try {
+            if (pointToPlane) {
+                PsDebug.message("Point to Plane");
+                pointToPlane();
+            } else {
+                PsDebug.message("Point to Point");
+                pointToPoint();
+            }
+        } catch (Exception ex) {
+            PsDebug.message(Arrays.toString(ex.getStackTrace()));
         }
     }
 
@@ -59,8 +66,8 @@ public class RigidRegistration {
 
         PsDebug.message("Running loop: " + closestPairs.size());
         for (VertexPair pair : closestPairs) {
-            PdVector normal = q.getVertexNormal(pair.v1);
-            PdVector pointP = p.getVertex(pair.v0);
+            PdVector normal = q.getVertexNormal(pair.indexQ);
+            PdVector pointP = p.getVertex(pair.indexP);
 
             // step 1: compute A
             PdMatrix topRow = toMatrix(PdVector.crossNew(pointP, normal));
@@ -85,7 +92,7 @@ public class RigidRegistration {
             A.add(res);
 
             // step 2: compute B
-            double distance = signedPlaneDistance(pair.v0, pair.v1);
+            double distance = signedPlaneDistance(pair.indexP, pair.indexQ);
 
             PdMatrix resB = new PdMatrix(6, 1);
             resB.multScalar(ai, distance);
@@ -145,20 +152,24 @@ public class RigidRegistration {
         PdMatrix rOptIntermediateResult = new PdMatrix(3, 3);
         rOptIntermediateResult.mult(middle, vt);
         rOpt.mult(u, rOptIntermediateResult);
-        PsDebug.message("ropt:" + rOpt.toString());
-        PsDebug.message("topt:" + t.toString());
 
         transform(toMatrix(t.getColumn(0)), rOpt);
     }
 
     private void pointToPoint() {
         // step 0: closest points
-        Set<VertexPair> closestPairs = computeClosestPairs(this::distance);
+        Set<VertexPair> closestPairs = computeClosestPairs(this::squareDistance);
 
         // step 1: compute centroids
         PsDebug.message("Running step 1");
-        PdVector centroidP = average(p.getVertices());
-        PdVector centroidQ = average(q.getVertices());
+
+//        PdVector centroidP = average(p.getVertices());
+//        PdVector centroidQ = average(q.getVertices());
+        PdVector centroidP = average(closestPairs.stream().map(pair -> p.getVertex(pair.indexP)).collect(Collectors.toSet()));
+        PdVector centroidQ = average(closestPairs.stream().map(pair -> q.getVertex(pair.indexQ)).collect(Collectors.toSet()));
+
+//        PsDebug.message("Old: " + Arrays.toString(centroidPOld.m_data));
+//        PsDebug.message("New: " + Arrays.toString(centroidP.m_data));
 
         // step 2: compute M = ...
         PsDebug.message("Running step 2");
@@ -170,17 +181,17 @@ public class RigidRegistration {
             PdMatrix dq = new PdMatrix(3, 1);
             PdMatrix dqt = new PdMatrix(1, 3);
 
-            dp.set(PdVector.subNew(p.getVertex(pair.v0), centroidP).m_data);
-            dq.set(PdVector.subNew(q.getVertex(pair.v1), centroidQ).m_data);
+            dp.set(PdVector.subNew(p.getVertex(pair.indexP), centroidP).m_data);
+            dq.set(PdVector.subNew(q.getVertex(pair.indexQ), centroidQ).m_data);
 
             dqt.transpose(dq);
 
             PdMatrix res = new PdMatrix(3, 3);
             res.mult(dp, dqt);
-            res.multScalar(1.0 / n);
 
             m.add(res);
         }
+        m.multScalar(1.0 / n);
 
         // step 3: compute SVD
         PsDebug.message("Running step 3");
@@ -201,16 +212,20 @@ public class RigidRegistration {
         vut.mult(v, ut);
 
         PdMatrix middle = new PdMatrix(new double[][]{
-                {1.0, 0, 0},
+                {1, 0, 0},
                 {0, 1, 0},
                 {0, 0, vut.det()}
         });
 
-        PdMatrix rOptIntermediateResult = new PdMatrix(3, 3);
-        rOptIntermediateResult.mult(middle, ut);
-        rOpt.mult(v, rOptIntermediateResult);
+//        PdMatrix rOptIntermediateResult = new PdMatrix(3, 3);
+//        rOptIntermediateResult.mult(middle, ut);
+//        rOpt.mult(v, rOptIntermediateResult);
 
-        optRotation = rOpt;
+        PdMatrix rOptIntermediateResult = new PdMatrix(3, 3);
+        rOptIntermediateResult.mult(v, middle);
+        rOpt.mult(rOptIntermediateResult, ut);
+
+        PdMatrix optRotation = rOpt;
 
         // step 5: compute optimal translation
         PsDebug.message("Running step 5");
@@ -224,17 +239,18 @@ public class RigidRegistration {
 
         PdMatrix rOptIntermediate = new PdMatrix(3, 1);
         rOptIntermediate.mult(rOpt, centroidPMatrix);
-        centroidQMatrix.sub(rOptIntermediate);
 
-        optTranslation = centroidQMatrix;
-
-        PsDebug.message(this.toString());
+        PdMatrix optTranslation = new PdMatrix(3, 1);
+        optTranslation.sub(centroidQMatrix, rOptIntermediate);
 
         transform(optTranslation, optRotation);
     }
 
 
     private void transform(PdMatrix translation, PdMatrix rotation) {
+        PsDebug.message("ropt:" + rotation.toString());
+        PsDebug.message("topt:" + translation.toString());
+
         PdMatrix res = new PdMatrix(3, 1);
         for (PdVector v : p.getVertices()) {
             res.mult(rotation, toMatrix(v));
@@ -246,22 +262,14 @@ public class RigidRegistration {
         p.update(p);
     }
 
-    @Override
-    public String toString() {
-        return "RigidRegistration{" +
-                "optRotation=" + optRotation +
-                ", optTranslation=" + optTranslation +
-                '}';
-    }
-
-    // since finding closest pairs is slow without a fancy data structure, use a ConcurrentSet and a parallel stream to
+    // since finding closest pairs is slow without a fancy data structure, parallel stream to
     // do it concurrently
     public Set<VertexPair> computeClosestPairs(DistanceFunction fnDistance) {
         IntStream stream;
         if (n < 1 || n > p.getNumVertices()) {
             stream = IntStream.range(0, p.getNumVertices());
         } else {
-            stream = new Random().ints(n,0, p.getNumVertices());
+            stream = new Random().ints(n,0, p.getNumVertices()).distinct();
         }
 
         Set<VertexPair> pairs = stream.parallel()
@@ -297,7 +305,7 @@ public class RigidRegistration {
     }
 
     private double squareDistance(int v0, int v1) {
-        PdVector diff = PdVector.subNew(q.getVertex(v0), p.getVertex(v1));
+        PdVector diff = PdVector.subNew(p.getVertex(v0), q.getVertex(v1));
         return PdVector.dot(diff, diff);
     }
 
@@ -326,16 +334,16 @@ public class RigidRegistration {
 
 
     class VertexPair {
-        int v0;
-        int v1;
+        int indexP;
+        int indexQ;
 
         double distance;
 
-        public VertexPair(int v0, int v1, DistanceFunction distFn) {
-            this.v0 = v0;
-            this.v1 = v1;
+        public VertexPair(int indexP, int indexQ, DistanceFunction distFn) {
+            this.indexP = indexP;
+            this.indexQ = indexQ;
 
-            distance = distFn.apply(v0, v1);
+            distance = distFn.apply(indexP, indexQ);
         }
 
 
@@ -346,8 +354,8 @@ public class RigidRegistration {
         @Override
         public String toString() {
             return "VertexPair{" +
-                    "v0=" + Arrays.toString(p.getVertex(v0).m_data) +
-                    ", v1=" + Arrays.toString(q.getVertex(v1).m_data) +
+                    "v0=" + Arrays.toString(p.getVertex(indexP).m_data) +
+                    ", v1=" + Arrays.toString(q.getVertex(indexQ).m_data) +
                     ", distance=" + distance +
                     '}';
         }
