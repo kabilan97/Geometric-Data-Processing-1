@@ -20,6 +20,12 @@ public class RigidRegistration {
     private int n;
     private boolean pointToPlane;
 
+    double totalTranslation = 0.0;
+
+    public double getTotalTranslation() {
+        return totalTranslation;
+    }
+
     public RigidRegistration(PgElementSet p, PgElementSet q, int n, int k, boolean pointToPlane) {
         this.p = p;
         this.q = q;
@@ -251,6 +257,9 @@ public class RigidRegistration {
 
             v.set(res.getColumn(0).m_data);
         }
+
+        PdVector translationVector = new PdVector(translation.getColumn(0).m_data);
+        this.totalTranslation = translationVector.length();
 
         p.update(p);
     }

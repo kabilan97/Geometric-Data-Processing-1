@@ -54,8 +54,10 @@ public class Registration extends PjWorkshop {
 	}
 
 
-	public void run(int n, int k, boolean usePointToPlane) {
+	public double run(int n, int k, boolean usePointToPlane) {
 		RigidRegistration rr = new RigidRegistration(m_surfP, m_surfQ, n, k, usePointToPlane);
 		rr.runAlgorithm();
+
+		return rr.totalTranslation;
 	}
 }

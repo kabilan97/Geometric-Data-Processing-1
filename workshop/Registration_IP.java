@@ -44,6 +44,8 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 	protected PuBoolean usePointToPlane;
 	private Label outputLabel;
 
+	private int iterations = 0;
+
 	/** Constructor */
 	public Registration_IP () {
 		super();
@@ -90,12 +92,12 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 		Active.setLayout(new BorderLayout());
 		Label ActiveLabel = new Label("Surface P");
 		Active.add(ActiveLabel, BorderLayout.NORTH);
-		m_listActive = new PsList(5, true);
+		m_listActive = new PsList(3, true);
 		Active.add(m_listActive, BorderLayout.CENTER);
 		pGeometries.add(Active);
 		Label PassiveLabel = new Label("Surface Q");
 		Passive.add(PassiveLabel, BorderLayout.NORTH);
-		m_listPassive = new PsList(5, true);
+		m_listPassive = new PsList(3, true);
 		Passive.add(m_listPassive, BorderLayout.CENTER);
 		pGeometries.add(Passive);
 		add(pGeometries);
@@ -156,8 +158,13 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 			(PgElementSet)m_geomList.elementAt(m_listPassive.getSelectedIndex()));
 
 			outputLabel.setText("Computing");
-			m_registration.run(n.getValue(), k.getValue(), usePointToPlane.getState());
-			outputLabel.setText("Done (value in console)");
+			double total = m_registration.run(n.getValue(), k.getValue(), usePointToPlane.getState());
+			iterations++;
+			outputLabel.setText("Done (translation = " + total + ", iteration #" + (iterations + 1) + ")");
+
+			if (total < 0.01) {
+				outputLabel.setText("Done - ALIGNED (translation = " + total + ", iteration #" + (iterations + 1) + ")");
+			}
 		}
 	}
 	/**
