@@ -158,10 +158,10 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 			for (int i = 0; i < 100; i++) {
 				outputLabel.setText("Computing");
 				double total = m_registration.run(n.getValue(), k.getValue(), usePointToPlane.getState());
-				outputLabel.setText("Done (translation = " + total + ", iteration #" + (i + 1) + ")");
+				outputLabel.setText("Done (Iterations: " +  (i+1)  + ", translation = " + total + " ");
 
 				if (total < 0.01) {
-					outputLabel.setText("Done - ALIGNED (translation = " + total + ", iteration #" + (i + 1) + ")");
+					outputLabel.setText("Done - ALIGNED (Iterations: " +  (i+1)  + ", translation = " + total + " ");
 					break;
 				}
 			}
