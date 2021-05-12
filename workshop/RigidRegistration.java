@@ -58,7 +58,7 @@ public class RigidRegistration {
 
     private void pointToPlane() {
         // step 0: closest points
-        Set<VertexPair> closestPairs = computeClosestPairs(this::distanceToPlane);
+        Set<VertexPair> closestPairs = computeClosestPairs(this::squareDistance);
 
         // compute a & b
         PdMatrix A = new PdMatrix(6, 6);
@@ -144,14 +144,14 @@ public class RigidRegistration {
         uvt.mult(u, vt);
 
         PdMatrix middle = new PdMatrix(new double[][]{
-                {1.0, 0, 0},
+                {1, 0, 0},
                 {0, 1, 0},
                 {0, 0, uvt.det()}
         });
 
         PdMatrix rOptIntermediateResult = new PdMatrix(3, 3);
-        rOptIntermediateResult.mult(middle, vt);
-        rOpt.mult(u, rOptIntermediateResult);
+        rOptIntermediateResult.mult(u, middle);
+        rOpt.mult(rOptIntermediateResult, vt);
 
         transform(toMatrix(t.getColumn(0)), rOpt);
     }
@@ -217,10 +217,6 @@ public class RigidRegistration {
                 {0, 0, vut.det()}
         });
 
-//        PdMatrix rOptIntermediateResult = new PdMatrix(3, 3);
-//        rOptIntermediateResult.mult(middle, ut);
-//        rOpt.mult(v, rOptIntermediateResult);
-
         PdMatrix rOptIntermediateResult = new PdMatrix(3, 3);
         rOptIntermediateResult.mult(v, middle);
         rOpt.mult(rOptIntermediateResult, ut);
@@ -233,9 +229,6 @@ public class RigidRegistration {
         PdMatrix centroidQMatrix = new PdMatrix(3, 1);
         centroidPMatrix.set(centroidP.m_data);
         centroidQMatrix.set(centroidQ.m_data);
-
-        PsDebug.message(centroidPMatrix.toString());
-        PsDebug.message(rOpt.toString());
 
         PdMatrix rOptIntermediate = new PdMatrix(3, 1);
         rOptIntermediate.mult(rOpt, centroidPMatrix);
@@ -273,7 +266,7 @@ public class RigidRegistration {
         }
 
         Set<VertexPair> pairs = stream.parallel()
-                .mapToObj(i -> new VertexPair(i, findClosestInQ(i, fnDistance), fnDistance))
+                .mapToObj(indexP -> new VertexPair(indexP, findClosestInQ(indexP, fnDistance), fnDistance))
                 .collect(Collectors.toSet());
 
         // https://stackoverflow.com/a/49215170
@@ -288,20 +281,20 @@ public class RigidRegistration {
         return trimmed;
     }
 
-    private int findClosestInQ(int v, DistanceFunction fnDistance) {
-        int pMin = -1;
-        double distMin = Double.MAX_VALUE;
+    private int findClosestInQ(int indexP, DistanceFunction fnDistance) {
+        int minPoint = -1;
+        double minDist = Double.MAX_VALUE;
 
         PdVector[] vertices = q.getVertices();
-        for (int i = 0, verticesLength = vertices.length; i < verticesLength; i++) {
+        for (int indexQ = 0, verticesLength = vertices.length; indexQ < verticesLength; indexQ++) {
             // since we're just comparing, square distance is enough
-            double dist = fnDistance.apply(v, i);
-            if (dist < distMin) {
-                distMin = dist;
-                pMin = i;
+            double dist = fnDistance.apply(indexP, indexQ);
+            if (dist < minDist) {
+                minDist = dist;
+                minPoint = indexQ;
             }
         }
-        return pMin;
+        return minPoint;
     }
 
     private double squareDistance(int v0, int v1) {
@@ -309,23 +302,22 @@ public class RigidRegistration {
         return PdVector.dot(diff, diff);
     }
 
-    private double signedPlaneDistance(int v0, int v1) {
-        PdVector pointP = p.getVertex(v0);
-        PdVector pointQ = q.getVertex(v1);
-        PdVector normalQ = q.getVertexNormal(v1);
+    private double signedPlaneDistance(int indexP, int indexQ) {
+        PdVector pointP = p.getVertex(indexP);
+        PdVector pointQ = q.getVertex(indexQ);
+        PdVector normalQ = q.getVertexNormal(indexQ);
 
         PdMatrix difference = toMatrix(PdVector.subNew(pointP, pointQ));
         PdMatrix differenceTranspose = transpose(difference);
 
         PdMatrix res = new PdMatrix(1, 1);
-
         res.mult(differenceTranspose, toMatrix(normalQ));
 
         return res.getEntry(0, 0);
     }
 
-    private double distanceToPlane(int v0, int v1) {
-        return Math.abs(signedPlaneDistance(v0, v1));
+    private double distanceToPlane(int indexP, int indexQ) {
+        return Math.sqrt(signedPlaneDistance(indexP, indexQ));
     }
 
     private double distance(int v0, int v1) {
