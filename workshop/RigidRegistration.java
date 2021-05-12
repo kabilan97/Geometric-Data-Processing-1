@@ -51,10 +51,10 @@ public class RigidRegistration {
     public void runAlgorithm() {
         try {
             if (pointToPlane) {
-                PsDebug.message("Point to Plane");
+                PsDebug.message("Running Point to Plane");
                 pointToPlane();
             } else {
-                PsDebug.message("Point to Point");
+                PsDebug.message("Running Point to Point");
                 pointToPoint();
             }
         } catch (Exception ex) {
@@ -246,6 +246,9 @@ public class RigidRegistration {
     }
 
 
+    /**
+     * Apply the transformations.
+     */
     private void transform(PdMatrix translation, PdMatrix rotation) {
         PsDebug.message("ropt:" + rotation.toString());
         PsDebug.message("topt:" + translation.toString());
@@ -258,6 +261,7 @@ public class RigidRegistration {
             v.set(res.getColumn(0).m_data);
         }
 
+        // store the total translation applied so we can use it to evaluate the alignment
         PdVector translationVector = new PdVector(translation.getColumn(0).m_data);
         this.totalTranslation = translationVector.length();
 
