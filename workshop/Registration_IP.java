@@ -44,8 +44,6 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 	protected PuBoolean usePointToPlane;
 	private Label outputLabel;
 
-	private int iterations = 0;
-
 	/** Constructor */
 	public Registration_IP () {
 		super();
@@ -157,14 +155,17 @@ public class Registration_IP extends PjWorkshop_IP implements ActionListener{
 			m_registration.setGeometries((PgElementSet)m_geomList.elementAt(m_listActive.getSelectedIndex()),
 			(PgElementSet)m_geomList.elementAt(m_listPassive.getSelectedIndex()));
 
-			outputLabel.setText("Computing");
-			double total = m_registration.run(n.getValue(), k.getValue(), usePointToPlane.getState());
-			iterations++;
-			outputLabel.setText("Done (translation = " + total + ", iteration #" + (iterations + 1) + ")");
+			for (int i = 0; i < 100; i++) {
+				outputLabel.setText("Computing");
+				double total = m_registration.run(n.getValue(), k.getValue(), usePointToPlane.getState());
+				outputLabel.setText("Done (translation = " + total + ", iteration #" + (i + 1) + ")");
 
-			if (total < 0.01) {
-				outputLabel.setText("Done - ALIGNED (translation = " + total + ", iteration #" + (iterations + 1) + ")");
+				if (total < 0.01) {
+					outputLabel.setText("Done - ALIGNED (translation = " + total + ", iteration #" + (i + 1) + ")");
+					break;
+				}
 			}
+
 		}
 	}
 	/**
