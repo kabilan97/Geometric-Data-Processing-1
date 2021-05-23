@@ -8,6 +8,7 @@ import jv.vecmath.PdVector;
 import util.Util;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -61,7 +62,6 @@ public class RigidRegistration {
             PsDebug.message(Arrays.toString(ex.getStackTrace()));
         }
     }
-
     private void pointToPlane() {
         // step 0: closest points
         Set<VertexPair> closestPairs = computeClosestPairs(this::squareDistance);

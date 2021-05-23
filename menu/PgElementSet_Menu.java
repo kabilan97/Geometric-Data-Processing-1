@@ -14,11 +14,14 @@ import jv.vecmath.PdVector;
 import jvx.project.PjWorkshop_Dialog;
 import workshop.*;
 
+import java.util.Arrays;
+
 public class PgElementSet_Menu extends PgPointSet_Menu {
 	
 	private enum MenuEntry{
 		MyWorkshop			("MyWorkshop..."),
-		Registration		("Surface Registration...")
+		Registration		("Surface Registration..."),
+		DiffCoordinates		("Differential coordinates")
 		// Additional entries...
 		;
 		protected final String name;
@@ -88,6 +91,25 @@ public class PgElementSet_Menu extends PgPointSet_Menu {
 			dialog.setParent(reg);
 			dialog.update(reg);
 			dialog.setVisible(true);
+			break;
+		case DiffCoordinates:
+			try {
+				DiffCoordinates dc = new DiffCoordinates();
+				dc.setGeometry(m_elementSet);
+				if (currDisp == null) {
+					if (PsDebug.WARNING) PsDebug.warning("missing display.");
+				} else
+					dc.setDisplay(currDisp);
+				dialog = new PjWorkshop_Dialog(false);
+				dialog.setParent(dc);
+				dialog.update(dc);
+				dialog.setVisible(true);
+			} catch (Exception x) {
+				PsDebug.message(x.getClass().getName());
+				PsDebug.message(x.getMessage());
+				PsDebug.message(Arrays.toString(x.getStackTrace()));
+			}
+
 			break;
 		}
 		
