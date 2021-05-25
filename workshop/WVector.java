@@ -1,5 +1,6 @@
 package workshop;
 
+import jv.object.PsDebug;
 import jv.vecmath.PdMatrix;
 import jv.vecmath.PdVector;
 
@@ -18,6 +19,18 @@ public class WVector {
 
     public WMatrix transpose() {
         return new WMatrix(transpose(toMatrix().m));
+    }
+
+    public double x() {
+        return v.getEntry(0);
+    }
+
+    public double y() {
+        return v.getEntry(1);
+    }
+
+    public double z() {
+        return v.getEntry(2);
     }
 
     public WMatrix toMatrix() {
@@ -63,5 +76,13 @@ public class WVector {
     @Override
     public String toString() {
         return Arrays.toString(v.m_data);
+    }
+
+    public WVector cross(WVector other) {
+        return new WVector(PdVector.crossNew(this.v, other.v));
+    }
+
+    public double length() {
+        return v.length();
     }
 }

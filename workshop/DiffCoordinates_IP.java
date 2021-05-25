@@ -1,6 +1,7 @@
 package workshop;
 
 import jv.number.PuDouble;
+import jv.object.PsDebug;
 import jv.object.PsDialog;
 import jv.object.PsUpdateIf;
 import jvx.project.PjWorkshop_IP;
@@ -8,8 +9,10 @@ import jvx.project.PjWorkshop_IP;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
-public class DiffCoordinates_IP extends PjWorkshop_IP implements ActionListener {
+public class DiffCoordinates_IP extends PjWorkshop_IP {
 
 	protected Button draw_gradients;
 	protected Button m_bMakeRandomVertexColors;
@@ -36,6 +39,19 @@ public class DiffCoordinates_IP extends PjWorkshop_IP implements ActionListener 
 		addSubTitle("Task 1");
 //		add(new Label("Genus: "));
 		draw_gradients = new Button("Draw gradients");
+		draw_gradients.addActionListener(e -> {
+			PsDebug.message("Running");
+			try {
+				diffCoordinates.drawGradients();
+			} catch (Exception ex) {
+				StringWriter sw = new StringWriter();
+				PrintWriter pw = new PrintWriter(sw);
+				ex.printStackTrace(pw);
+
+				PsDebug.message(sw.toString());
+			}
+			PsDebug.message("Done");
+		});
 		add(draw_gradients);
 
 		validate();
@@ -52,16 +68,6 @@ public class DiffCoordinates_IP extends PjWorkshop_IP implements ActionListener 
 			return true;
 		} else
 			return super.update(event);
-	}
-	
-	/**
-	 * Handle action events fired by buttons etc.
-	 */
-	public void actionPerformed(ActionEvent event) {
-		Object source = event.getSource();
-		if (source == draw_gradients) {
-			diffCoordinates.drawGradients();
-		}
 	}
 	/**
 	 * Get information which bottom buttons a dialog should create

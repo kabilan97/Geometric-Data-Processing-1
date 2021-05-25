@@ -20,6 +20,15 @@ public class WMatrix {
         this.m = new PdMatrix(rows, cols);
     }
 
+    public static WMatrix columns(WVector... col) {
+        PdMatrix m = new PdMatrix(col[0].v.getSize(), col.length);
+        for (int i = 0; i < col.length; i++) {
+            m.setColumn(i, col[i].v);
+        }
+
+        return new WMatrix(m);
+    }
+
     public WMatrix mult(WMatrix o) {
         assert m.getNumCols() == o.m.getNumRows() : "Matrix dimensions don't allow for multiplication";
 
