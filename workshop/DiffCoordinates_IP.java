@@ -44,6 +44,7 @@ public class DiffCoordinates_IP extends PjWorkshop_IP {
 			try {
 				diffCoordinates.drawGradients();
 			} catch (Exception ex) {
+				PsDebug.message("Exception occurred");
 				StringWriter sw = new StringWriter();
 				PrintWriter pw = new PrintWriter(sw);
 				ex.printStackTrace(pw);

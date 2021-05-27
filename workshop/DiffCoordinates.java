@@ -6,10 +6,16 @@ import jv.project.PgGeometry;
 import jv.vecmath.PdMatrix;
 import jv.vecmath.PdVector;
 import jv.vecmath.PiVector;
+import jvx.numeric.PnConjugateGradient;
+import jvx.numeric.PnConjugateGradientMatrix;
 import jvx.numeric.PnSparseMatrix;
 import jvx.project.PjWorkshop;
+import dev6.numeric.PnMumpsSolver;
 
 import java.util.HashMap;
+
+import static jvx.numeric.PnSparseMatrix.multMatrices;
+import static jvx.numeric.PnSparseMatrix.rightMultVector;
 
 public class DiffCoordinates extends PjWorkshop {
 
@@ -74,80 +80,87 @@ public class DiffCoordinates extends PjWorkshop {
 			}
 		}
 
+
+		PsDebug.message(Mv.toString());
+
 		PnSparseMatrix Gt = G.transposeNew();
-		PnSparseMatrix S = PnSparseMatrix.multMatrices(Gt, PnSparseMatrix.multMatrices(Mv, G, null), null);
+		PnSparseMatrix S = multMatrices(Gt, multMatrices(Mv, G, null), null);
 		PnSparseMatrix Mi = new PnSparseMatrix(mesh.getNumVertices(), mesh.getNumVertices());
 		for (int i = 0; i < mesh.getNumVertices(); i++) {
 			Mi.setEntry(i, i, 1.0 / M.getEntry(i, i));
 		}
 
-		PnSparseMatrix L = PnSparseMatrix.multMatrices(Mi, S, null);
+		PnSparseMatrix L = multMatrices(Mi, S, null);
 
 		return new Matrices(G, Gt, Mv, S, L);
 	}
 
-	public void drawGradients() {
+	public void drawGradients() throws Exception {
 		mesh.makeElementNormals();
 
 		Matrices m = computeMatrices();
+
 		WMatrix userSuppliedMatrix = new WMatrix(new double[][]{
-				{3, 3, 3},
-				{3, 3, 3},
-				{3, 3, 3}
+				{1, 0, 0},
+				{0, 1, 0},
+				{0, 0, 1}
 		});
 
 		// Step 1: build vector g
 		WVector vx = new WVector(new PdVector(mesh.getNumVertices()));
+		WVector vy = new WVector(new PdVector(mesh.getNumVertices()));
+		WVector vz = new WVector(new PdVector(mesh.getNumVertices()));
 		for (int i = 0; i < mesh.getNumVertices(); i++) {
 			vx.v.setEntry(i, mesh.getVertex(i).getEntry(0));
+			vy.v.setEntry(i, mesh.getVertex(i).getEntry(1));
+			vz.v.setEntry(i, mesh.getVertex(i).getEntry(2));
 		}
 
-		WVector gx = new WVector(new PdVector(3 * mesh.getNumElements()));
-		WVector gy = new WVector(new PdVector(3 * mesh.getNumElements()));
-		WVector gz = new WVector(new PdVector(3 * mesh.getNumElements()));
+		WVector gx = new WVector(PnSparseMatrix.rightMultVector(m.G, vx.v, null));
+		WVector gy = new WVector(PnSparseMatrix.rightMultVector(m.G, vy.v, null));
+		WVector gz = new WVector(PnSparseMatrix.rightMultVector(m.G, vz.v, null));
 
-		for (int triangleIndex = 0, elementsLength = mesh.getElements().length; triangleIndex < elementsLength; triangleIndex++) {
-			// Compute matrix G
-			PiVector vertexIndices = mesh.getElements()[triangleIndex];
+		// Step 2: build gTilde vectors
+		WVector gxTilde = new WVector(new PdVector(gx.v.getSize()));
+		WVector gyTilde = new WVector(new PdVector(gy.v.getSize()));
+		WVector gzTilde = new WVector(new PdVector(gz.v.getSize()));
 
-			WVector p1 = new WVector(mesh.getVertex(vertexIndices.getEntry(0)));
-			WVector p2 = new WVector(mesh.getVertex(vertexIndices.getEntry(1)));
-			WVector p3 = new WVector(mesh.getVertex(vertexIndices.getEntry(2)));
+		for (int i = 0; i < gx.v.getSize(); i++) {
+			WVector a = new WVector(new PdVector(gx.v.getEntry(i), gy.v.getEntry(i), gz.v.getEntry(i)));
 
-			WVector N = new WVector(mesh.getElementNormal(triangleIndex));
+			WVector res = userSuppliedMatrix.mult(a).toVector();
 
-			WMatrix A = computeA(N, p1, p2, p3);
-			WMatrix applied = A; //userSuppliedMatrix.mult(A);
-
-			for (int i = 0; i < 3; i++) {
-				gx.v.setEntry(triangleIndex * 3 + i, applied.m.getColumn(0).getEntry(i));
-				gy.v.setEntry(triangleIndex * 3 + i, applied.m.getColumn(1).getEntry(i));
-				gz.v.setEntry(triangleIndex * 3 + i, applied.m.getColumn(2).getEntry(i));
-			}
+			gxTilde.v.setEntry(i, res.x());
+			gyTilde.v.setEntry(i, res.y());
+			gzTilde.v.setEntry(i, res.z());
 		}
-
-		/**
-		 * 1. Construct vx, vy, vz, vectors containing all coordinates of vertices
-		 * 2. Multiply G by v/x/y/z to get gx, gy, gz
-		 * 3. Multiply with supplied vector for each selected Triangle (5, 7, 25), Supplied *[gx[5], gy[5], gz[5]]
-		 * 4. [g_apos_x[5], g_apos_y[5], g_apos_z[5]], g
-		 * 3. Extract gradients for each triangle -> Triangle (5, 7, 25) -> Supplied *[gx[5], gy[5], gz[5]]    ,[gx[5], gx[7], gx[27], [gy[5], gy[7], gy[27]
-		 * 4. Put into A
-		 */
-		PsDebug.message(gx.toString());
-
-		PsDebug.message(PnSparseMatrix.rightMultVector(m.G, vx.v, null).toString());
-
-
-
-		// Step 2: make RHS matrix
 
 		// Step 3: make LHS matrix
+		PnSparseMatrix lhs = multMatrices(m.Gt, multMatrices(m.Mv, m.G, null), null);
 
-		// Step 4: Solve to get vector v
+		// Step 4: make RHS matrix
+		PdVector rhsx = rightMultVector(m.Gt, rightMultVector(m.Mv, gxTilde.v, null), null);
+		PdVector rhsy = rightMultVector(m.Gt, rightMultVector(m.Mv, gyTilde.v, null), null);
+		PdVector rhsz = rightMultVector(m.Gt, rightMultVector(m.Mv, gzTilde.v, null), null);
 
-		// Step 5: Apply new coordinates in v to mesh
+		// Step 5: Solve to get vector v
+		PdVector vxTilde = new PdVector(mesh.getNumVertices());
+		PdVector vyTilde = new PdVector(mesh.getNumVertices());
+		PdVector vzTilde = new PdVector(mesh.getNumVertices());
 
+//		long factor = PnMumpsSolver.factor(lhs, PnMumpsSolver.Type.GENERAL_SYMMETRIC);
+//		PnMumpsSolver.solve(factor, vxTilde, rhsx);
+//		PnMumpsSolver.solve(factor, vyTilde, rhsy);
+//		PnMumpsSolver.solve(factor, vzTilde, rhsz);
+
+		// Step 6: Apply new coordinates in v to mesh
+		PsDebug.message(vx.toString());
+		PsDebug.message(new WVector(vxTilde).toString());
+
+//		for (int i = 0; i < mesh.getNumVertices(); i++) {
+//			mesh.setVertex(i, new PdVector(vxTilde.getEntry(i), vyTilde.getEntry(i), vzTilde.getEntry(i)));
+//		}
+//		mesh.update(mesh);
 
 	}
 
@@ -163,7 +176,6 @@ public class DiffCoordinates extends PjWorkshop {
 
 		WMatrix A = WMatrix.columns(N.cross(e1), N.cross(e2), N.cross(e3));
 		A = A.mult(scalar);
-
 		return A;
 	}
 
