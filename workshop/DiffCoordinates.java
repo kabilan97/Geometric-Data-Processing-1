@@ -2,6 +2,7 @@ package workshop;
 
 import jv.geom.PgElementSet;
 import jv.object.PsDebug;
+import jv.object.PsObject;
 import jv.project.PgGeometry;
 import jv.vecmath.PdMatrix;
 import jv.vecmath.PdVector;
@@ -14,8 +15,7 @@ import dev6.numeric.PnMumpsSolver;
 
 import java.util.HashMap;
 
-import static jvx.numeric.PnSparseMatrix.multMatrices;
-import static jvx.numeric.PnSparseMatrix.rightMultVector;
+import static jvx.numeric.PnSparseMatrix.*;
 
 public class DiffCoordinates extends PjWorkshop {
 
@@ -81,7 +81,7 @@ public class DiffCoordinates extends PjWorkshop {
 		}
 
 
-		PsDebug.message(Mv.toString());
+//		PsDebug.message(Mv.toString());
 
 		PnSparseMatrix Gt = G.transposeNew();
 		PnSparseMatrix S = multMatrices(Gt, multMatrices(Mv, G, null), null);
@@ -92,7 +92,7 @@ public class DiffCoordinates extends PjWorkshop {
 
 		PnSparseMatrix L = multMatrices(Mi, S, null);
 
-		return new Matrices(G, Gt, Mv, S, L);
+		return new Matrices(G, Gt, Mv, S, L, M, Mi);
 	}
 
 	public void drawGradients() throws Exception {
@@ -116,9 +116,9 @@ public class DiffCoordinates extends PjWorkshop {
 			vz.v.setEntry(i, mesh.getVertex(i).getEntry(2));
 		}
 
-		WVector gx = new WVector(PnSparseMatrix.rightMultVector(m.G, vx.v, null));
-		WVector gy = new WVector(PnSparseMatrix.rightMultVector(m.G, vy.v, null));
-		WVector gz = new WVector(PnSparseMatrix.rightMultVector(m.G, vz.v, null));
+		WVector gx = new WVector(rightMultVector(m.G, vx.v, null));
+		WVector gy = new WVector(rightMultVector(m.G, vy.v, null));
+		WVector gz = new WVector(rightMultVector(m.G, vz.v, null));
 
 		// Step 2: build gTilde vectors
 		WVector gxTilde = new WVector(new PdVector(gx.v.getSize()));
@@ -136,7 +136,8 @@ public class DiffCoordinates extends PjWorkshop {
 		}
 
 		// Step 3: make LHS matrix
-		PnSparseMatrix lhs = multMatrices(m.Gt, multMatrices(m.Mv, m.G, null), null);
+		PnSparseMatrix epsilonM = multScalar(m.M, 0.01);
+		PnSparseMatrix lhs = addNew(multMatrices(m.Gt, multMatrices(m.Mv, m.G, null), null), epsilonM);
 
 		// Step 4: make RHS matrix
 		PdVector rhsx = rightMultVector(m.Gt, rightMultVector(m.Mv, gxTilde.v, null), null);
@@ -148,19 +149,37 @@ public class DiffCoordinates extends PjWorkshop {
 		PdVector vyTilde = new PdVector(mesh.getNumVertices());
 		PdVector vzTilde = new PdVector(mesh.getNumVertices());
 
+
 //		long factor = PnMumpsSolver.factor(lhs, PnMumpsSolver.Type.GENERAL_SYMMETRIC);
-//		PnMumpsSolver.solve(factor, vxTilde, rhsx);
-//		PnMumpsSolver.solve(factor, vyTilde, rhsy);
-//		PnMumpsSolver.solve(factor, vzTilde, rhsz);
+		PnMumpsSolver.solve(lhs, vxTilde, rhsx, PnMumpsSolver.Type.GENERAL_SYMMETRIC);
+		PnMumpsSolver.solve(lhs, vyTilde, rhsy, PnMumpsSolver.Type.GENERAL_SYMMETRIC);
+		PnMumpsSolver.solve(lhs, vzTilde, rhsz, PnMumpsSolver.Type.GENERAL_SYMMETRIC);
 
 		// Step 6: Apply new coordinates in v to mesh
-		PsDebug.message(vx.toString());
-		PsDebug.message(new WVector(vxTilde).toString());
+//		PdVector lhsVx = rightMultVector(lhs, vxTilde, null);
+//		PdVector lhsVy = rightMultVector(lhs, vyTilde, null);
+//		PdVector lhsVz = rightMultVector(lhs, vzTilde, null);
+//
+//		PsDebug.message("X");
+//		PsDebug.message(new WVector(lhsVx).toString());
+//		PsDebug.message(new WVector(rhsx).toString());
+//
+//		PsDebug.message("Y");
+//		PsDebug.message(new WVector(lhsVy).toString());
+//		PsDebug.message(new WVector(rhsy).toString());
+//
+//		PsDebug.message("Z");
+//		PsDebug.message(new WVector(lhsVz).toString());
+//		PsDebug.message(new WVector(rhsz).toString());
 
-//		for (int i = 0; i < mesh.getNumVertices(); i++) {
-//			mesh.setVertex(i, new PdVector(vxTilde.getEntry(i), vyTilde.getEntry(i), vzTilde.getEntry(i)));
-//		}
-//		mesh.update(mesh);
+		for (int i = 0; i < mesh.getNumVertices(); i++) {
+			if (!mesh.getVertex(i).hasTag(PsObject.IS_SELECTED)) {
+				continue;
+			}
+
+			mesh.setVertex(i, new PdVector(vxTilde.getEntry(i), vyTilde.getEntry(i), vzTilde.getEntry(i)));
+		}
+		mesh.update(mesh);
 
 	}
 
@@ -198,13 +217,15 @@ public class DiffCoordinates extends PjWorkshop {
 }
 
 class Matrices {
-	PnSparseMatrix G, Gt, Mv, S, L;
+	PnSparseMatrix G, Gt, Mv, S, L, M, Mi;
 
-	public Matrices(PnSparseMatrix g, PnSparseMatrix gt, PnSparseMatrix mv, PnSparseMatrix s, PnSparseMatrix l) {
+	public Matrices(PnSparseMatrix g, PnSparseMatrix gt, PnSparseMatrix mv, PnSparseMatrix s, PnSparseMatrix l, PnSparseMatrix m, PnSparseMatrix mi) {
 		G = g;
 		Gt = gt;
 		Mv = mv;
 		S = s;
 		L = l;
+		M = m;
+		Mi = mi;
 	}
 }
