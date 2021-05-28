@@ -138,6 +138,7 @@ public class DiffCoordinates extends PjWorkshop {
 		// Step 3: make LHS matrix
 		PnSparseMatrix epsilonM = multScalar(m.M, 0.01);
 		PnSparseMatrix lhs = addNew(multMatrices(m.Gt, multMatrices(m.Mv, m.G, null), null), epsilonM);
+		lhs.validate();
 
 		// Step 4: make RHS matrix
 		PdVector rhsx = rightMultVector(m.Gt, rightMultVector(m.Mv, gxTilde.v, null), null);
@@ -151,15 +152,15 @@ public class DiffCoordinates extends PjWorkshop {
 
 
 //		long factor = PnMumpsSolver.factor(lhs, PnMumpsSolver.Type.GENERAL_SYMMETRIC);
-		PnMumpsSolver.solve(lhs, vxTilde, rhsx, PnMumpsSolver.Type.GENERAL_SYMMETRIC);
-		PnMumpsSolver.solve(lhs, vyTilde, rhsy, PnMumpsSolver.Type.GENERAL_SYMMETRIC);
-		PnMumpsSolver.solve(lhs, vzTilde, rhsz, PnMumpsSolver.Type.GENERAL_SYMMETRIC);
+		PnMumpsSolver.solve(lhs, vxTilde, rhsx, PnMumpsSolver.Type.SYMMETRIC_POSITIVE_DEFINITE);
+		PnMumpsSolver.solve(lhs, vyTilde, rhsy, PnMumpsSolver.Type.SYMMETRIC_POSITIVE_DEFINITE);
+		PnMumpsSolver.solve(lhs, vzTilde, rhsz, PnMumpsSolver.Type.SYMMETRIC_POSITIVE_DEFINITE);
 
 		// Step 6: Apply new coordinates in v to mesh
 //		PdVector lhsVx = rightMultVector(lhs, vxTilde, null);
 //		PdVector lhsVy = rightMultVector(lhs, vyTilde, null);
 //		PdVector lhsVz = rightMultVector(lhs, vzTilde, null);
-//
+
 //		PsDebug.message("X");
 //		PsDebug.message(new WVector(lhsVx).toString());
 //		PsDebug.message(new WVector(rhsx).toString());
@@ -171,6 +172,12 @@ public class DiffCoordinates extends PjWorkshop {
 //		PsDebug.message("Z");
 //		PsDebug.message(new WVector(lhsVz).toString());
 //		PsDebug.message(new WVector(rhsz).toString());
+//
+//		PsDebug.message(new WVector(vx.v).toString());
+//
+//		PsDebug.message(new WVector(vxTilde).toString());
+//		PsDebug.message(new WVector(vyTilde).toString());
+//		PsDebug.message(new WVector(vzTilde).toString());
 
 		for (int i = 0; i < mesh.getNumVertices(); i++) {
 			if (!mesh.getVertex(i).hasTag(PsObject.IS_SELECTED)) {
