@@ -157,6 +157,9 @@ public class DiffCoordinates extends PjWorkshop {
 		for (int i = 0; i < mesh.getNumVertices(); i++) {
 			mesh.setVertex(i, new PdVector(vxTilde.getEntry(i), vyTilde.getEntry(i), vzTilde.getEntry(i)));
 		}
+		
+		// TODO: move mesh to center
+
 		mesh.update(mesh);
 	}
 
