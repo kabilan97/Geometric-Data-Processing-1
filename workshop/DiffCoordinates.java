@@ -40,24 +40,21 @@ public class DiffCoordinates extends PjWorkshop {
 
 
 	private Matrices computeMatrices() {
-
 		PnSparseMatrix G = new PnSparseMatrix(3 * mesh.getNumElements(), mesh.getNumVertices());
 		PnSparseMatrix Mv = new PnSparseMatrix(3 * mesh.getNumElements(), 3 * mesh.getNumElements());
 		PnSparseMatrix M = new PnSparseMatrix(mesh.getNumVertices(), mesh.getNumVertices());
 
 		PiVector[] elements = mesh.getElements();
 		for (int triangleIndex = 0, elementsLength = elements.length; triangleIndex < elementsLength; triangleIndex++) {
-			// Compute matrix G
+			// Get the triangle vertices
 			PiVector vertexIndices = elements[triangleIndex];
-
 			WVector p1 = new WVector(mesh.getVertex(vertexIndices.getEntry(0)));
 			WVector p2 = new WVector(mesh.getVertex(vertexIndices.getEntry(1)));
 			WVector p3 = new WVector(mesh.getVertex(vertexIndices.getEntry(2)));
 
+			// Compute matrix G
 			WVector N = new WVector(mesh.getElementNormal(triangleIndex));
-
 			WMatrix A = computeA(N, p1, p2, p3);
-
 			for (int col = 0; col < 3; col++) {
 				for (int row = 0; row < 3; row++) {
 					G.setEntry(triangleIndex * 3 + row, vertexIndices.getEntry(col), A.m.getEntry(row, col));
@@ -66,7 +63,6 @@ public class DiffCoordinates extends PjWorkshop {
 
 			// Compute matrix Mv
 			double area = area(p1, p2, p3);
-
 			for (int i = 0; i < 3; i++) {
 				Mv.setEntry(triangleIndex * 3 + i,triangleIndex * 3 + i, area);
 			}
@@ -79,9 +75,6 @@ public class DiffCoordinates extends PjWorkshop {
 				M.setEntry(n, n, current + area / 3.0);
 			}
 		}
-
-
-//		PsDebug.message(Mv.toString());
 
 		PnSparseMatrix Gt = G.transposeNew();
 		PnSparseMatrix S = multMatrices(Gt, multMatrices(Mv, G, null), null);
@@ -140,33 +133,9 @@ public class DiffCoordinates extends PjWorkshop {
 			gyTilde.v.setEntry(i, res.y());
 			gzTilde.v.setEntry(i, res.z());
 		}
-//		for (int triangleIndex = 0; triangleIndex < mesh.getNumElements(); triangleIndex++) {
-////			if (!mesh.getVertex(mesh.getElement(i).getEntry(i % 3)).hasTag(PsObject.IS_SELECTED)) {
-////				continue;
-////			}
-//			int gIndex = triangleIndex * 3;
-//			WVector a = new WVector(new PdVector(gx.v.getEntry(gIndex), gx.v.getEntry(gIndex + 1), gx.v.getEntry(gIndex + 2)));
-//			WVector res = userSuppliedMatrix.mult(a).toVector();
-//			gxTilde.v.setEntry(gIndex, res.x());
-//			gxTilde.v.setEntry(gIndex + 1, res.y());
-//			gxTilde.v.setEntry(gIndex + 2, res.z());
-//
-//			a = new WVector(new PdVector(gy.v.getEntry(gIndex), gy.v.getEntry(gIndex + 1), gy.v.getEntry(gIndex + 2)));
-//			res = userSuppliedMatrix.mult(a).toVector();
-//			gyTilde.v.setEntry(gIndex, res.x());
-//			gyTilde.v.setEntry(gIndex + 1, res.y());
-//			gyTilde.v.setEntry(gIndex + 2, res.z());
-//
-//			a = new WVector(new PdVector(gz.v.getEntry(gIndex), gz.v.getEntry(gIndex + 1), gz.v.getEntry(gIndex + 2)));
-//			res = userSuppliedMatrix.mult(a).toVector();
-//			gzTilde.v.setEntry(gIndex, res.x());
-//			gzTilde.v.setEntry(gIndex + 1, res.y());
-//			gzTilde.v.setEntry(gIndex + 2, res.z());
-//		}
 
 		// Step 3: make LHS matrix
-		PnSparseMatrix epsilonM = multScalar(m.M, 0);
-		PnSparseMatrix lhs = addNew(multMatrices(m.Gt, multMatrices(m.Mv, m.G, null), null), epsilonM);
+		PnSparseMatrix lhs = multMatrices(m.Gt, multMatrices(m.Mv, m.G, null), null);
 		lhs.validate();
 
 		// Step 4: make RHS matrix
@@ -179,44 +148,16 @@ public class DiffCoordinates extends PjWorkshop {
 		PdVector vyTilde = new PdVector(mesh.getNumVertices());
 		PdVector vzTilde = new PdVector(mesh.getNumVertices());
 
-
-//		long factor = PnMumpsSolver.factor(lhs, PnMumpsSolver.Type.GENERAL_SYMMETRIC);
-		PnMumpsSolver.solve(lhs, vxTilde, rhsx, PnMumpsSolver.Type.SYMMETRIC_POSITIVE_DEFINITE);
-		PnMumpsSolver.solve(lhs, vyTilde, rhsy, PnMumpsSolver.Type.SYMMETRIC_POSITIVE_DEFINITE);
-		PnMumpsSolver.solve(lhs, vzTilde, rhsz, PnMumpsSolver.Type.SYMMETRIC_POSITIVE_DEFINITE);
+		long factor = PnMumpsSolver.factor(lhs, PnMumpsSolver.Type.SYMMETRIC_POSITIVE_DEFINITE);
+		PnMumpsSolver.solve(factor, vxTilde, rhsx);
+		PnMumpsSolver.solve(factor, vyTilde, rhsy);
+		PnMumpsSolver.solve(factor, vzTilde, rhsz);
 
 		// Step 6: Apply new coordinates in v to mesh
-		PdVector lhsVx = rightMultVector(lhs, vxTilde, null);
-		PdVector lhsVy = rightMultVector(lhs, vyTilde, null);
-		PdVector lhsVz = rightMultVector(lhs, vzTilde, null);
-
-//		PsDebug.message("X");
-//		PsDebug.message(new WVector(lhsVx).toString());
-//		PsDebug.message(new WVector(rhsx).toString());
-//
-//		PsDebug.message("Y");
-//		PsDebug.message(new WVector(lhsVy).toString());
-//		PsDebug.message(new WVector(rhsy).toString());
-//
-//		PsDebug.message("Z");
-//		PsDebug.message(new WVector(lhsVz).toString());
-//		PsDebug.message(new WVector(rhsz).toString());
-
-		PsDebug.message(new WVector(vx.v).toString());
-
-		PsDebug.message(new WVector(vxTilde).toString());
-//		PsDebug.message(new WVector(vyTilde).toString());
-//		PsDebug.message(new WVector(vzTilde).toString());
-
 		for (int i = 0; i < mesh.getNumVertices(); i++) {
-//			if (!mesh.getVertex(i).hasTag(PsObject.IS_SELECTED)) {
-//				continue;
-//			}
-
 			mesh.setVertex(i, new PdVector(vxTilde.getEntry(i), vyTilde.getEntry(i), vzTilde.getEntry(i)));
 		}
 		mesh.update(mesh);
-
 	}
 
 
