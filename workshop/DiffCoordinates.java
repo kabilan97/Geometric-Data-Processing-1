@@ -101,9 +101,9 @@ public class DiffCoordinates extends PjWorkshop {
 		Matrices m = computeMatrices();
 
 		WMatrix userSuppliedMatrix = new WMatrix(new double[][]{
-				{1, 0, 0},
-				{0, 1, 0},
-				{0, 0, 1}
+				{2, 0, 0},
+				{0, 2, 0},
+				{0, 0, 2}
 		});
 
 		// Step 1: build vector g
@@ -127,16 +127,45 @@ public class DiffCoordinates extends PjWorkshop {
 
 		for (int i = 0; i < gx.v.getSize(); i++) {
 			WVector a = new WVector(new PdVector(gx.v.getEntry(i), gy.v.getEntry(i), gz.v.getEntry(i)));
+			WVector res;
 
-			WVector res = userSuppliedMatrix.mult(a).toVector();
+			int triangleIndex = i / 3;
+			if (mesh.getVertex(mesh.getElement(triangleIndex).getEntry(i % 3)).hasTag(PsObject.IS_SELECTED)) {
+				res = userSuppliedMatrix.mult(a).toVector();
+			} else {
+				res = a;
+			}
 
 			gxTilde.v.setEntry(i, res.x());
 			gyTilde.v.setEntry(i, res.y());
 			gzTilde.v.setEntry(i, res.z());
 		}
+//		for (int triangleIndex = 0; triangleIndex < mesh.getNumElements(); triangleIndex++) {
+////			if (!mesh.getVertex(mesh.getElement(i).getEntry(i % 3)).hasTag(PsObject.IS_SELECTED)) {
+////				continue;
+////			}
+//			int gIndex = triangleIndex * 3;
+//			WVector a = new WVector(new PdVector(gx.v.getEntry(gIndex), gx.v.getEntry(gIndex + 1), gx.v.getEntry(gIndex + 2)));
+//			WVector res = userSuppliedMatrix.mult(a).toVector();
+//			gxTilde.v.setEntry(gIndex, res.x());
+//			gxTilde.v.setEntry(gIndex + 1, res.y());
+//			gxTilde.v.setEntry(gIndex + 2, res.z());
+//
+//			a = new WVector(new PdVector(gy.v.getEntry(gIndex), gy.v.getEntry(gIndex + 1), gy.v.getEntry(gIndex + 2)));
+//			res = userSuppliedMatrix.mult(a).toVector();
+//			gyTilde.v.setEntry(gIndex, res.x());
+//			gyTilde.v.setEntry(gIndex + 1, res.y());
+//			gyTilde.v.setEntry(gIndex + 2, res.z());
+//
+//			a = new WVector(new PdVector(gz.v.getEntry(gIndex), gz.v.getEntry(gIndex + 1), gz.v.getEntry(gIndex + 2)));
+//			res = userSuppliedMatrix.mult(a).toVector();
+//			gzTilde.v.setEntry(gIndex, res.x());
+//			gzTilde.v.setEntry(gIndex + 1, res.y());
+//			gzTilde.v.setEntry(gIndex + 2, res.z());
+//		}
 
 		// Step 3: make LHS matrix
-		PnSparseMatrix epsilonM = multScalar(m.M, 0.01);
+		PnSparseMatrix epsilonM = multScalar(m.M, 0);
 		PnSparseMatrix lhs = addNew(multMatrices(m.Gt, multMatrices(m.Mv, m.G, null), null), epsilonM);
 		lhs.validate();
 
@@ -157,9 +186,9 @@ public class DiffCoordinates extends PjWorkshop {
 		PnMumpsSolver.solve(lhs, vzTilde, rhsz, PnMumpsSolver.Type.SYMMETRIC_POSITIVE_DEFINITE);
 
 		// Step 6: Apply new coordinates in v to mesh
-//		PdVector lhsVx = rightMultVector(lhs, vxTilde, null);
-//		PdVector lhsVy = rightMultVector(lhs, vyTilde, null);
-//		PdVector lhsVz = rightMultVector(lhs, vzTilde, null);
+		PdVector lhsVx = rightMultVector(lhs, vxTilde, null);
+		PdVector lhsVy = rightMultVector(lhs, vyTilde, null);
+		PdVector lhsVz = rightMultVector(lhs, vzTilde, null);
 
 //		PsDebug.message("X");
 //		PsDebug.message(new WVector(lhsVx).toString());
@@ -172,17 +201,17 @@ public class DiffCoordinates extends PjWorkshop {
 //		PsDebug.message("Z");
 //		PsDebug.message(new WVector(lhsVz).toString());
 //		PsDebug.message(new WVector(rhsz).toString());
-//
-//		PsDebug.message(new WVector(vx.v).toString());
-//
-//		PsDebug.message(new WVector(vxTilde).toString());
+
+		PsDebug.message(new WVector(vx.v).toString());
+
+		PsDebug.message(new WVector(vxTilde).toString());
 //		PsDebug.message(new WVector(vyTilde).toString());
 //		PsDebug.message(new WVector(vzTilde).toString());
 
 		for (int i = 0; i < mesh.getNumVertices(); i++) {
-			if (!mesh.getVertex(i).hasTag(PsObject.IS_SELECTED)) {
-				continue;
-			}
+//			if (!mesh.getVertex(i).hasTag(PsObject.IS_SELECTED)) {
+//				continue;
+//			}
 
 			mesh.setVertex(i, new PdVector(vxTilde.getEntry(i), vyTilde.getEntry(i), vzTilde.getEntry(i)));
 		}
@@ -198,7 +227,7 @@ public class DiffCoordinates extends PjWorkshop {
 		WVector e2 = p1.minus(p3);
 		WVector e3 = p2.minus(p1);
 
-		double scalar =  (1.0 / 2.0) * area(p1, p2, p3);
+		double scalar =  1.0 / (2.0 * area(p1, p2, p3));
 
 		WMatrix A = WMatrix.columns(N.cross(e1), N.cross(e2), N.cross(e3));
 		A = A.mult(scalar);
