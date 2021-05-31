@@ -148,12 +148,13 @@ public class DiffCoordinates extends PjWorkshop {
 		PnMumpsSolver.solve(factor, vzTilde, rhsz);
 
 		// Step 6: Apply new coordinates in v to mesh
+		WVector center = new WVector(mesh.getCenterOfGravity());
 		for (int i = 0; i < mesh.getNumVertices(); i++) {
 			mesh.setVertex(i, new PdVector(vxTilde.getEntry(i), vyTilde.getEntry(i), vzTilde.getEntry(i)));
 		}
 
-		// TODO: move mesh to center
-
+		// translate mesh by difference in center of gravity to prevent it from moving
+		mesh.translate(center.minus(mesh.getCenterOfGravity()).v);
 		mesh.update(mesh);
 	}
 

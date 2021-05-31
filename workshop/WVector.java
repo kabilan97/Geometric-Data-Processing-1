@@ -85,4 +85,14 @@ public class WVector {
     public double length() {
         return v.length();
     }
+
+    public WVector mult(double scalar) {
+        PdVector res = new PdVector(v.m_data);
+        res.multScalar(scalar);
+        return new WVector(res);
+    }
+
+    public WVector minus(PdVector other) {
+        return minus(new WVector(other));
+    }
 }
