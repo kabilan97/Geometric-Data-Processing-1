@@ -7,17 +7,16 @@ import jv.object.PsUpdateIf;
 import jvx.project.PjWorkshop_IP;
 
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
 public class DiffCoordinates_IP extends PjWorkshop_IP {
 
-	protected Button draw_gradients;
+	protected Button modifyMesh;
 	protected Button m_bMakeRandomVertexColors;
 	protected PuDouble m_xOff;
 
+	protected TextArea matrixInput;
 	DiffCoordinates diffCoordinates;
 
 	public DiffCoordinates_IP() {
@@ -37,12 +36,24 @@ public class DiffCoordinates_IP extends PjWorkshop_IP {
 
 
 		addSubTitle("Task 1");
+
+		add(new Label("Matrix input"));
+		matrixInput = new TextArea("1 0 0\n0 1 0\n0 0 1", 3, 12);
+		add(matrixInput);
+
 //		add(new Label("Genus: "));
-		draw_gradients = new Button("Draw gradients");
-		draw_gradients.addActionListener(e -> {
+		modifyMesh = new Button("Update mesh");
+		modifyMesh.addActionListener(e -> {
 			PsDebug.message("Running");
 			try {
-				diffCoordinates.drawGradients();
+				String[] matrix = matrixInput.getText().split("\\s");
+				WMatrix m = new WMatrix(new double[][]{
+						{d(matrix[0]), d(matrix[1]), d(matrix[2])},
+						{d(matrix[3]), d(matrix[4]), d(matrix[5])},
+						{d(matrix[6]), d(matrix[7]), d(matrix[8])}
+				});
+
+				diffCoordinates.deformMesh(m);
 			} catch (Exception ex) {
 				PsDebug.message("Exception occurred");
 				StringWriter sw = new StringWriter();
@@ -53,9 +64,13 @@ public class DiffCoordinates_IP extends PjWorkshop_IP {
 			}
 			PsDebug.message("Done");
 		});
-		add(draw_gradients);
+		add(modifyMesh);
 
 		validate();
+	}
+
+	private static double d(String s) {
+		return Double.parseDouble(s);
 	}
 
 	public void init() {

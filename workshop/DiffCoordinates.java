@@ -88,16 +88,10 @@ public class DiffCoordinates extends PjWorkshop {
 		return new Matrices(G, Gt, Mv, S, L, M, Mi);
 	}
 
-	public void drawGradients() throws Exception {
+	public void deformMesh(WMatrix userSuppliedMatrix) throws Exception {
 		mesh.makeElementNormals();
 
 		Matrices m = computeMatrices();
-
-		WMatrix userSuppliedMatrix = new WMatrix(new double[][]{
-				{2, 0, 0},
-				{0, 2, 0},
-				{0, 0, 2}
-		});
 
 		// Step 1: build vector g
 		WVector vx = new WVector(new PdVector(mesh.getNumVertices()));
@@ -157,7 +151,7 @@ public class DiffCoordinates extends PjWorkshop {
 		for (int i = 0; i < mesh.getNumVertices(); i++) {
 			mesh.setVertex(i, new PdVector(vxTilde.getEntry(i), vyTilde.getEntry(i), vzTilde.getEntry(i)));
 		}
-		
+
 		// TODO: move mesh to center
 
 		mesh.update(mesh);
