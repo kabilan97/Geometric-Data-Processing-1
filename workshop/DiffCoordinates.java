@@ -13,7 +13,10 @@ import jvx.numeric.PnSparseMatrix;
 import jvx.project.PjWorkshop;
 import dev6.numeric.PnMumpsSolver;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
 
 import static jvx.numeric.PnSparseMatrix.*;
 
@@ -85,23 +88,19 @@ public class DiffCoordinates extends PjWorkshop {
 
 		PnSparseMatrix L = multMatrices(Mi, S, null);
 
-		return new Matrices(G, Gt, Mv, S, L, M, Mi);
+		return new Matrices(G, Gt, Mv, S, L, L.transposeNew(), M, Mi);
 	}
 
-	public void deformMesh(WMatrix userSuppliedMatrix) throws Exception {
+	public void deformMesh(WMatrix userSuppliedMatrix, Set<Integer> selected) throws Exception {
 		mesh.makeElementNormals();
 
 		Matrices m = computeMatrices();
 
 		// Step 1: build vector g
-		WVector vx = new WVector(new PdVector(mesh.getNumVertices()));
-		WVector vy = new WVector(new PdVector(mesh.getNumVertices()));
-		WVector vz = new WVector(new PdVector(mesh.getNumVertices()));
-		for (int i = 0; i < mesh.getNumVertices(); i++) {
-			vx.v.setEntry(i, mesh.getVertex(i).getEntry(0));
-			vy.v.setEntry(i, mesh.getVertex(i).getEntry(1));
-			vz.v.setEntry(i, mesh.getVertex(i).getEntry(2));
-		}
+		WVector[] v = computeV();
+		WVector vx = v[0];
+		WVector vy = v[1];
+		WVector vz = v[2];
 
 		WVector gx = new WVector(rightMultVector(m.G, vx.v, null));
 		WVector gy = new WVector(rightMultVector(m.G, vy.v, null));
@@ -117,7 +116,7 @@ public class DiffCoordinates extends PjWorkshop {
 			WVector res;
 
 			int triangleIndex = i / 3;
-			if (mesh.getVertex(mesh.getElement(triangleIndex).getEntry(i % 3)).hasTag(PsObject.IS_SELECTED)) {
+			if (selected.contains(mesh.getElement(triangleIndex).getEntry(i % 3))) {
 				res = userSuppliedMatrix.mult(a).toVector();
 			} else {
 				res = a;
@@ -138,6 +137,82 @@ public class DiffCoordinates extends PjWorkshop {
 		PdVector rhsz = rightMultVector(m.Gt, rightMultVector(m.Mv, gzTilde.v, null), null);
 
 		// Step 5: Solve to get vector v
+		applyAfterSolving(lhs, rhsx, rhsy, rhsz);
+	}
+
+	public void deformMeshLaplacian(WMatrix userSuppliedMatrix, Set<Integer> selected, Set<Integer> constrained) throws Exception {
+		mesh.makeElementNormals();
+		double lambda = 1.0;
+
+		Matrices m = computeMatrices();
+
+		// Step 1: build vectors delta
+		WVector[] v = computeV();
+		WVector vx = v[0];
+		WVector vy = v[1];
+		WVector vz = v[2];
+
+		// 1 0 0
+		// 0 -0.5 -0.86
+		// 0 0.86 -0.5
+
+
+		WVector deltagx = new WVector(rightMultVector(m.L, vx.v, null));
+		WVector deltagy = new WVector(rightMultVector(m.L, vy.v, null));
+		WVector deltagz = new WVector(rightMultVector(m.L, vz.v, null));
+
+		PdVector deltax = new PdVector(mesh.getNumVertices());
+		PdVector deltay = new PdVector(mesh.getNumVertices());
+		PdVector deltaz = new PdVector(mesh.getNumVertices());
+
+		for (int i = 0; i < deltagx.v.getSize(); i++) {
+			WVector a = new WVector(new PdVector(deltagx.v.getEntry(i), deltagy.v.getEntry(i), deltagz.v.getEntry(i)));
+			WVector res;
+
+			if (selected.contains(i)) {
+				res = a;
+			} else {
+				res = userSuppliedMatrix.mult(a).toVector();
+			}
+
+			deltax.setEntry(i, res.x());
+			deltay.setEntry(i, res.y());
+			deltaz.setEntry(i, res.z());
+		}
+
+
+		// Build matrix A
+//		long selected = Arrays.stream(mesh.getVertices()).filter(vertex -> vertex.hasTag(PsObject.IS_SELECTED)).count();
+		PnSparseMatrix A = new PnSparseMatrix(mesh.getNumVertices(), mesh.getNumVertices());
+		for (int i = 0; i < mesh.getNumVertices(); i++) {
+			A.setEntry(i, i, constrained.contains(i) ? 1 : 0);
+		}
+
+		PnSparseMatrix At = PnSparseMatrix.transposeNew(A);
+
+		// Step 3: build a vectors
+		PdVector ax = rightMultVector(A, vx.v, null);
+		PdVector ay = rightMultVector(A, vy.v, null);
+		PdVector az = rightMultVector(A, vz.v, null);
+
+		// Step 4: make LHS matrix
+		PnSparseMatrix LtL = multMatrices(m.Lt, m.L, null);
+		PnSparseMatrix AtA = multMatrices(At, A, null);
+		AtA.multScalar(lambda);
+
+		PnSparseMatrix lhs = addNew(LtL, AtA);
+		lhs.validate();
+
+		// Step 4: make RHS matrix
+		PdVector rhsx = buildRhs(m.Lt, deltax, At, ax, lambda);
+		PdVector rhsy = buildRhs(m.Lt, deltay, At, ay, lambda);
+		PdVector rhsz = buildRhs(m.Lt, deltaz, At, az, lambda);
+
+		applyAfterSolving(lhs, rhsx, rhsy, rhsz);
+	}
+
+	private void applyAfterSolving(PnSparseMatrix lhs, PdVector rhsx, PdVector rhsy, PdVector rhsz) throws Exception {
+		// Step 5: Solve to get vector v
 		PdVector vxTilde = new PdVector(mesh.getNumVertices());
 		PdVector vyTilde = new PdVector(mesh.getNumVertices());
 		PdVector vzTilde = new PdVector(mesh.getNumVertices());
@@ -156,6 +231,27 @@ public class DiffCoordinates extends PjWorkshop {
 		// translate mesh by difference in center of gravity to prevent it from moving
 		mesh.translate(center.minus(mesh.getCenterOfGravity()).v);
 		mesh.update(mesh);
+	}
+
+	private PdVector buildRhs(PnSparseMatrix Lt, PdVector delta, PnSparseMatrix At, PdVector a, double lambda) {
+		PdVector LtDelta = rightMultVector(Lt, delta, null);
+		PdVector Ata = rightMultVector(At, a, null);
+		Ata.multScalar(lambda);
+
+		return PdVector.addNew(LtDelta, Ata);
+	}
+
+	private WVector[] computeV() {
+		WVector vx = new WVector(new PdVector(mesh.getNumVertices()));
+		WVector vy = new WVector(new PdVector(mesh.getNumVertices()));
+		WVector vz = new WVector(new PdVector(mesh.getNumVertices()));
+		for (int i = 0; i < mesh.getNumVertices(); i++) {
+			vx.v.setEntry(i, mesh.getVertex(i).getEntry(0));
+			vy.v.setEntry(i, mesh.getVertex(i).getEntry(1));
+			vz.v.setEntry(i, mesh.getVertex(i).getEntry(2));
+		}
+
+		return new WVector[]{vx, vy, vz};
 	}
 
 
@@ -192,14 +288,15 @@ public class DiffCoordinates extends PjWorkshop {
 }
 
 class Matrices {
-	PnSparseMatrix G, Gt, Mv, S, L, M, Mi;
+	PnSparseMatrix G, Gt, Mv, S, L, Lt, M, Mi;
 
-	public Matrices(PnSparseMatrix g, PnSparseMatrix gt, PnSparseMatrix mv, PnSparseMatrix s, PnSparseMatrix l, PnSparseMatrix m, PnSparseMatrix mi) {
+	public Matrices(PnSparseMatrix g, PnSparseMatrix gt, PnSparseMatrix mv, PnSparseMatrix s, PnSparseMatrix l, PnSparseMatrix lt, PnSparseMatrix m, PnSparseMatrix mi) {
 		G = g;
 		Gt = gt;
 		Mv = mv;
 		S = s;
 		L = l;
+		Lt = lt;
 		M = m;
 		Mi = mi;
 	}
