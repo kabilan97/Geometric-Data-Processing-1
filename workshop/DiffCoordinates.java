@@ -41,8 +41,13 @@ public class DiffCoordinates extends PjWorkshop {
 		super.init();
 	}
 
-
 	private Matrices computeMatrices() {
+		return computeMatrices(false);
+	}
+
+	public Matrices computeMatrices(boolean printResults) {
+		mesh.makeElementNormals();
+
 		PnSparseMatrix G = new PnSparseMatrix(3 * mesh.getNumElements(), mesh.getNumVertices());
 		PnSparseMatrix Mv = new PnSparseMatrix(3 * mesh.getNumElements(), 3 * mesh.getNumElements());
 		PnSparseMatrix M = new PnSparseMatrix(mesh.getNumVertices(), mesh.getNumVertices());
@@ -88,10 +93,15 @@ public class DiffCoordinates extends PjWorkshop {
 
 		PnSparseMatrix L = multMatrices(Mi, S, null);
 
-		return new Matrices(G, Gt, Mv, S, L, L.transposeNew(), M, Mi);
+		Matrices m = new Matrices(G, Gt, Mv, S, L, L.transposeNew(), M, Mi);
+		if (printResults) {
+			PsDebug.message(m.toString());
+		}
+		return m;
 	}
 
-	public void deformMesh(WMatrix userSuppliedMatrix, Set<Integer> selected) throws Exception {
+	public void deformMeshGradient(WMatrix userSuppliedMatrix, Set<Integer> selected) throws Exception {
+		PsDebug.message("Running gradient-based mesh deformation");
 		mesh.makeElementNormals();
 
 		Matrices m = computeMatrices();
@@ -140,9 +150,8 @@ public class DiffCoordinates extends PjWorkshop {
 		applyAfterSolving(lhs, rhsx, rhsy, rhsz);
 	}
 
-	public void deformMeshLaplacian(WMatrix userSuppliedMatrix, Set<Integer> selected, Set<Integer> constrained) throws Exception {
-		mesh.makeElementNormals();
-		double lambda = 1.0;
+	public void deformMeshLaplacian(WMatrix userSuppliedMatrix, Set<Integer> selected, Set<Integer> constrained, double lambda) throws Exception {
+		PsDebug.message("Running laplacian-based mesh deformation");
 
 		Matrices m = computeMatrices();
 
@@ -151,11 +160,6 @@ public class DiffCoordinates extends PjWorkshop {
 		WVector vx = v[0];
 		WVector vy = v[1];
 		WVector vz = v[2];
-
-		// 1 0 0
-		// 0 -0.5 -0.86
-		// 0 0.86 -0.5
-
 
 		WVector deltagx = new WVector(rightMultVector(m.L, vx.v, null));
 		WVector deltagy = new WVector(rightMultVector(m.L, vy.v, null));
@@ -170,9 +174,9 @@ public class DiffCoordinates extends PjWorkshop {
 			WVector res;
 
 			if (selected.contains(i)) {
-				res = a;
-			} else {
 				res = userSuppliedMatrix.mult(a).toVector();
+			} else {
+				res = a;
 			}
 
 			deltax.setEntry(i, res.x());
@@ -299,5 +303,21 @@ class Matrices {
 		Lt = lt;
 		M = m;
 		Mi = mi;
+	}
+
+	@Override
+	public String toString() {
+		String res = "Matrices:";
+
+		res += "\nMatrix G:\n" + G.toShortString();
+		res += "\n\nMatrix Gt:\n" + Gt.toShortString();
+		res += "\n\nMatrix Mv:\n" + Mv.toShortString();
+		res += "\n\nMatrix S:\n" + S.toShortString();
+		res += "\n\nMatrix L:\n" + L.toShortString();
+		res += "\n\nMatrix Lt:\n" + Lt.toShortString();
+		res += "\n\nMatrix M:\n" + M.toShortString();
+		res += "\n\nMatrix Mi:\n" + Mi.toShortString();
+
+		return res;
 	}
 }

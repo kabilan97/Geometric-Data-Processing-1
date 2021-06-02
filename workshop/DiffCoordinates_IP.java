@@ -1,6 +1,7 @@
 package workshop;
 
 import jv.number.PuDouble;
+import jv.number.PuInteger;
 import jv.object.PsDebug;
 import jv.object.PsDialog;
 import jv.object.PsObject;
@@ -10,7 +11,6 @@ import jvx.project.PjWorkshop_IP;
 import java.awt.*;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -18,7 +18,7 @@ public class DiffCoordinates_IP extends PjWorkshop_IP {
 
 	protected Button modifyMesh, modifyMeshLaplacian, markSelected, markConstrained;
 	protected Button m_bMakeRandomVertexColors;
-	protected PuDouble m_xOff;
+	protected PuDouble m_xOff, lambda;
 
 	protected TextArea matrixInput;
 	DiffCoordinates diffCoordinates;
@@ -41,8 +41,12 @@ public class DiffCoordinates_IP extends PjWorkshop_IP {
 		super.setParent(parent);
 		diffCoordinates = (DiffCoordinates)parent;
 
+		lambda = new PuDouble("Lambda");
+		lambda.setDefValue(1);
+		lambda.setValue(1);
+		add(lambda.getInfoPanel());
 
-		addSubTitle("Task 1");
+		addSubTitle("Mesh deformation");
 
 		add(new Label("Matrix input"));
 		matrixInput = new TextArea("1 0 0\n0 1 0\n0 0 1", 3, 12);
@@ -73,7 +77,7 @@ public class DiffCoordinates_IP extends PjWorkshop_IP {
 		add(markSelected);
 		add(markConstrained);
 
-		modifyMesh = new Button("Update mesh");
+		modifyMesh = new Button("Update mesh (Gradients)");
 		modifyMesh.addActionListener(e -> handleButton(false));
 
 		modifyMeshLaplacian = new Button("Update mesh (Laplacian)");
@@ -81,11 +85,17 @@ public class DiffCoordinates_IP extends PjWorkshop_IP {
 		add(modifyMesh);
 		add(modifyMeshLaplacian);
 
+
+		Button printMatrices = new Button("Print matrices");
+		printMatrices.addActionListener(e -> {
+			diffCoordinates.computeMatrices(true);
+		});
+		add(printMatrices);
+
 		validate();
 	}
 
 	private void handleButton(boolean isLaplacian) {
-		PsDebug.message("Running");
 		try {
 			String[] matrix = matrixInput.getText().split("\\s");
 			WMatrix m = new WMatrix(new double[][]{
@@ -95,9 +105,9 @@ public class DiffCoordinates_IP extends PjWorkshop_IP {
 			});
 
 			if (isLaplacian) {
-				diffCoordinates.deformMesh(m, selected);
+				diffCoordinates.deformMeshLaplacian(m, selected, constrained, lambda.getValue());
 			} else {
-				diffCoordinates.deformMeshLaplacian(m, selected, constrained);
+				diffCoordinates.deformMeshGradient(m, selected);
 			}
 		} catch (Exception ex) {
 			PsDebug.message("Exception occurred");
